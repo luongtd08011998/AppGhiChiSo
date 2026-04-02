@@ -15,6 +15,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -38,9 +40,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.appghichiso.di.AppStateHolder
@@ -57,15 +61,34 @@ fun MeterReadingScreen(
     val appStateHolder = koinInject<AppStateHolder>()
     val submitState by viewModel.submitState.collectAsStateWithLifecycle()
 
-    val customer = appStateHolder.selectedCustomer ?: run {
-        onBack(); return
+    val customerList = appStateHolder.customerList
+    val initialCustomer = appStateHolder.selectedCustomer ?: run { onBack(); return }
+
+    // Tìm vị trí ban đầu trong danh sách
+    val initialIndex = remember(initialCustomer.customerCode) {
+        customerList.indexOfFirst { it.customerCode == initialCustomer.customerCode }
+            .coerceAtLeast(0)
     }
 
-    var newIndexText by rememberSaveable {
+    var currentIndex by rememberSaveable { mutableStateOf(initialIndex) }
+
+    val customer = if (customerList.isNotEmpty() && currentIndex < customerList.size)
+        customerList[currentIndex] else initialCustomer
+
+    val total = customerList.size.coerceAtLeast(1)
+
+    // Reset form mỗi khi chuyển sang khách hàng khác
+    var newIndexText by rememberSaveable(currentIndex) {
         mutableStateOf(if (customer.currentIndex > 0) customer.currentIndex.toString() else "")
     }
-    var showConfirmDialog by remember { mutableStateOf(false) }
-    var showSuccessDialog by remember { mutableStateOf(false) }
+    var showConfirmDialog by rememberSaveable(currentIndex) { mutableStateOf(false) }
+    var showSuccessDialog by rememberSaveable(currentIndex) { mutableStateOf(false) }
+
+    // Khi chuyển khách hàng, reset trạng thái submit
+    LaunchedEffect(currentIndex) {
+        viewModel.resetState()
+        appStateHolder.selectedCustomer = customer
+    }
 
     val newIndex = newIndexText.toIntOrNull()
     val consumption = if (newIndex != null && newIndex >= customer.previousIndex)
@@ -124,8 +147,27 @@ fun MeterReadingScreen(
                 Button(onClick = {
                     showSuccessDialog = false
                     viewModel.resetState()
+                    appStateHolder.recordedCustomerCodes.add(customer.customerCode)
+                    // Nếu còn khách hàng tiếp theo thì chuyển sang, ngược lại quay về danh sách
+                    if (currentIndex < customerList.size - 1) {
+                        currentIndex++
+                    } else {
+                        onSubmitSuccess()
+                    }
+                }) {
+                    Text(
+                        if (currentIndex < customerList.size - 1)
+                            "Khách tiếp theo →" else "Quay lại danh sách"
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showSuccessDialog = false
+                    viewModel.resetState()
+                    appStateHolder.recordedCustomerCodes.add(customer.customerCode)
                     onSubmitSuccess()
-                }) { Text("Quay lại danh sách") }
+                }) { Text("Về danh sách") }
             }
         )
     }
@@ -170,8 +212,63 @@ fun MeterReadingScreen(
         ) {
             Spacer(Modifier.height(4.dp))
 
+            /* ── Thanh điều hướng Trước / STT / Sau ── */
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { if (currentIndex > 0) currentIndex-- },
+                        enabled = currentIndex > 0
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Khách hàng trước",
+                            tint = if (currentIndex > 0)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "STT: ${currentIndex + 1} / $total",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+
+                    }
+
+                    IconButton(
+                        onClick = { if (currentIndex < customerList.size - 1) currentIndex++ },
+                        enabled = currentIndex < customerList.size - 1
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Khách hàng tiếp theo",
+                            tint = if (currentIndex < customerList.size - 1)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                        )
+                    }
+                }
+            }
+
             /* Banner da ghi */
-            if (customer.isRecorded) {
+            if (customer.isRecorded || appStateHolder.recordedCustomerCodes.contains(customer.customerCode)) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)

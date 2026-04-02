@@ -65,6 +65,13 @@ fun CustomerListScreen(
         viewModel.loadCustomers(roadCode)
     }
 
+    // Lưu danh sách đầy đủ vào AppStateHolder để MeterReadingScreen có thể điều hướng qua lại
+    LaunchedEffect(uiState) {
+        if (uiState is UiState.Success) {
+            appStateHolder.customerList = (uiState as UiState.Success<List<Customer>>).data
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
