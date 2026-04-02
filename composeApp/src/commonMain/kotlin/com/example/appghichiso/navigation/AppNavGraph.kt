@@ -7,12 +7,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.appghichiso.di.AppStateHolder
-import com.example.appghichiso.data.local.CredentialsStorage
 import com.example.appghichiso.presentation.auth.AuthViewModel
 import com.example.appghichiso.presentation.auth.LoginScreen
 import com.example.appghichiso.presentation.customer.CustomerListScreen
 import com.example.appghichiso.presentation.reading.MeterReadingScreen
 import com.example.appghichiso.presentation.route.RouteListScreen
+import com.example.appghichiso.session.SessionManager
 import kotlinx.serialization.Serializable
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -35,20 +35,28 @@ object MeterReadingRoute
 
 @Composable
 fun AppNavGraph() {
-    val credentialsStorage = koinInject<CredentialsStorage>()
+    val sessionManager = koinInject<SessionManager>()
     val appStateHolder = koinInject<AppStateHolder>()
-    val startDestination: Any =
-        if (credentialsStorage.isLoggedIn()) RouteListRoute else LoginRoute
 
-    // Khôi phục kỳ ghi chỉ số khi auto-login
-    LaunchedEffect(Unit) {
-        credentialsStorage.getSavedMonthYear()?.let { (m, y) ->
-            appStateHolder.billingMonth = m
-            appStateHolder.billingYear  = y
-        }
-    }
+    // Warm-start: process still alive → session active → skip login
+    // Cold-start / clear task: process killed → session inactive → show login
+    val startDestination: Any =
+        if (sessionManager.isActive) RouteListRoute else LoginRoute
 
     val navController = rememberNavController()
+
+    // Listen for 401 Unauthorized mid-session → deactivate and force re-login
+    LaunchedEffect(Unit) {
+        sessionManager.unauthorizedEvent.collect {
+            sessionManager.deactivate()
+            appStateHolder.recordedCustomerCodes.clear()
+            appStateHolder.selectedRoad = null
+            appStateHolder.selectedCustomer = null
+            navController.navigate(LoginRoute) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(navController = navController, startDestination = startDestination) {
 
@@ -97,3 +105,5 @@ fun AppNavGraph() {
         }
     }
 }
+
+

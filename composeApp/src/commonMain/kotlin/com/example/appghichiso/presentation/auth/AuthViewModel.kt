@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.appghichiso.di.AppStateHolder
 import com.example.appghichiso.domain.repository.AuthRepository
 import com.example.appghichiso.domain.usecase.LoginUseCase
+import com.example.appghichiso.session.SessionManager
 import com.example.appghichiso.util.currentMonth
 import com.example.appghichiso.util.currentYear
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,16 +23,19 @@ sealed interface LoginUiState {
 class AuthViewModel(
     private val loginUseCase: LoginUseCase,
     private val authRepository: AuthRepository,
-    private val appStateHolder: AppStateHolder
+    private val appStateHolder: AppStateHolder,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
-    val isLoggedIn: Boolean get() = authRepository.isLoggedIn()
+    /** True when the in-memory session is active (process still alive). */
+    val isLoggedIn: Boolean get() = sessionManager.isActive
 
-    // Giá trị khởi tạo cho LoginScreen
+    // Pre-fill values for the login form (from persistent storage)
     val savedUsername: String? = authRepository.getSavedUsername()
+    val savedPassword: String? = authRepository.getSavedPassword()
     val initialRememberMe: Boolean = authRepository.isRememberMe()
     val initialMonth: Int = authRepository.getSavedMonthYear()?.first ?: currentMonth()
     val initialYear: Int  = authRepository.getSavedMonthYear()?.second ?: currentYear()
@@ -60,6 +64,7 @@ class AuthViewModel(
     }
 
     fun logout() {
+        sessionManager.deactivate()
         authRepository.clearCredentials()
         appStateHolder.billingMonth = currentMonth()
         appStateHolder.billingYear  = currentYear()
@@ -73,3 +78,5 @@ class AuthViewModel(
         _uiState.value = LoginUiState.Idle
     }
 }
+
+

@@ -62,9 +62,9 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     val viewModel = koinViewModel<AuthViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Form state – pre-filled from saved credentials
+    // Form state – pre-filled from saved credentials (pre-fill only, not auto-login)
     var username by rememberSaveable { mutableStateOf(viewModel.savedUsername ?: "") }
-    var password by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf(viewModel.savedPassword ?: "") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var selectedMonth by rememberSaveable { mutableIntStateOf(viewModel.initialMonth) }
     var selectedYear by rememberSaveable { mutableStateOf(viewModel.initialYear.toString()) }

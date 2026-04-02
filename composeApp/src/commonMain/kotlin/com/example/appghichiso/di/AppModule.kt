@@ -22,7 +22,9 @@ import com.example.appghichiso.presentation.auth.AuthViewModel
 import com.example.appghichiso.presentation.customer.CustomerViewModel
 import com.example.appghichiso.presentation.reading.MeterReadingViewModel
 import com.example.appghichiso.presentation.route.RouteViewModel
+import com.example.appghichiso.session.SessionManager
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BasicAuthCredentials
 import io.ktor.client.plugins.auth.providers.basic
@@ -31,6 +33,7 @@ import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.logging.SIMPLE
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import org.koin.core.module.dsl.viewModel
@@ -47,9 +50,10 @@ fun appModule() = listOf(
 
 private fun networkModule() = module {
     single { CredentialsStorage(get()) }
+    single { SessionManager() }
 
     single<HttpClient> {
-        val credentialsStorage = get<CredentialsStorage>()
+        val sessionManager = get<SessionManager>()
         createHttpClient {
             install(ContentNegotiation) {
                 json(Json {
@@ -60,16 +64,26 @@ private fun networkModule() = module {
             install(Auth) {
                 basic {
                     credentials {
-                        val creds = credentialsStorage.getCredentials()
-                        if (creds != null) BasicAuthCredentials(creds.first, creds.second)
+                        // Only send credentials when session is active (after login)
+                        if (sessionManager.isActive)
+                            BasicAuthCredentials(sessionManager.email, sessionManager.password)
                         else null
                     }
-                    sendWithoutRequest { true }
+                    // Pre-emptively send auth header only when session is active
+                    sendWithoutRequest { sessionManager.isActive }
                 }
             }
             install(Logging) {
                 logger = Logger.SIMPLE
                 level = LogLevel.BODY
+            }
+            // Intercept 401 — deactivate session and notify UI
+            HttpResponseValidator {
+                validateResponse { response ->
+                    if (response.status == HttpStatusCode.Unauthorized) {
+                        sessionManager.emitUnauthorized()
+                    }
+                }
             }
         }
     }
@@ -81,7 +95,7 @@ private fun networkModule() = module {
 }
 
 private fun repositoryModule() = module {
-    single<AuthRepository> { AuthRepositoryImpl(get(), get<AuthApiService>()) }
+    single<AuthRepository> { AuthRepositoryImpl(get(), get<AuthApiService>(), get<SessionManager>()) }
     single<RoadRepository> { RoadRepositoryImpl(get()) }
     single<CustomerRepository> { CustomerRepositoryImpl(get()) }
     single<MeterReadingRepository> { MeterReadingRepositoryImpl(get()) }
@@ -95,7 +109,7 @@ private fun useCaseModule() = module {
 }
 
 private fun viewModelModule() = module {
-    viewModel { AuthViewModel(get(), get(), get()) }
+    viewModel { AuthViewModel(get(), get(), get(), get<SessionManager>()) }
     viewModel { RouteViewModel(get()) }
     viewModel { CustomerViewModel(get(), get()) }
     viewModel { MeterReadingViewModel(get()) }

@@ -11,6 +11,9 @@ interface AuthRepository {
     fun isLoggedIn(): Boolean
     fun clearCredentials()
     fun getSavedUsername(): String?
+    fun getSavedPassword(): String?
     fun getSavedMonthYear(): Pair<Int, Int>?
     fun isRememberMe(): Boolean
 }
+
+

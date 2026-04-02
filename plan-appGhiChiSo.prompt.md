@@ -1,6 +1,6 @@
 # Plan: Ứng dụng Ghi Chỉ Số Nước — KMP Architecture & WBS
 
-Xây dựng app đa nền tảng (Android/iOS) theo **Clean Architecture + MVVM/MVI** với **Ktor** gọi API, **Koin** DI, **SQLDelight** cache offline, và **Jetbrains Navigation Compose**. Project hiện tại là KMP scaffold sạch, cần bổ sung toàn bộ các lớp từ data → domain → presentation.
+Xây dựng app đa nền tảng (Android/iOS) theo **Clean Architecture + MVVM/MVI** với **Ktor** gọi API, **Koin** DI, `multiplatform-settings` lưu pre-fill form, và **Jetbrains Navigation Compose**. Session xác thực được giữ **in-memory** (`SessionManager`) — tồn tại khi process còn sống, mất khi clear task.
 
 ---
 
@@ -16,13 +16,30 @@ Xây dựng app đa nền tảng (Android/iOS) theo **Clean Architecture + MVVM/
 │   AuthVM    RouteVM    CustomerVM    ReadingVM       │
 ├─────────────────────────────────────────────────────┤
 │              Domain Layer (Use Cases)                │
-│  LoginUC  GetRoutesUC  GetCustomersUC  SubmitReadUC │
+│  LoginUC  GetRoadsUC  GetCustomersUC  SubmitReadUC  │
 ├────────────────────────┬────────────────────────────┤
-│   Data / Remote        │   Data / Local              │
-│   Ktor HTTP Client     │   SQLDelight (cache)        │
-│   API Services         │   DataStore (token)         │
+│   Data / Remote        │   Session (In-Memory)       │
+│   Ktor HTTP Client     │   SessionManager            │
+│   API Services         │   isActive / email / pw     │
+│                        ├────────────────────────────┤
+│                        │   Data / Local (Pre-fill)   │
+│                        │   CredentialsStorage        │
+│                        │   (multiplatform-settings)  │
 └────────────────────────┴────────────────────────────┘
 ```
+
+---
+
+## 🔐 Chiến Lược Authentication (đã triển khai)
+
+| Tình huống | Hành vi |
+|---|---|
+| App cold-start (clear task / process kill) | `SessionManager.isActive = false` → **LoginScreen** |
+| App warm-start (background → foreground) | `SessionManager.isActive = true` → **RouteListScreen** (bỏ qua login) |
+| Đăng nhập thành công | `sessionManager.activate(email, pw, month, year)` |
+| Đăng xuất | `sessionManager.deactivate()` → LoginScreen |
+| 401 mid-session | `unauthorizedEvent.tryEmit()` → NavGraph bắt → deactivate → LoginScreen |
+| "Ghi nhớ mật khẩu" | Lưu vào `CredentialsStorage` để **pre-fill form** — không tự động đăng nhập |
 
 ---
 
@@ -35,170 +52,146 @@ Xây dựng app đa nền tảng (Android/iOS) theo **Clean Architecture + MVVM/
 | HTTP Client | `ktor-client` (OkHttp/Darwin) | KMP standard |
 | Serialization | `kotlinx-serialization-json` | Ktor plugin |
 | DI | `koin-compose-multiplatform` | KMP, lightweight |
-| Local DB | `SQLDelight 2.x` | KMP, offline cache |
-| Token storage | `datastore-preferences` KMP | Secure, KMP |
+| Pre-fill storage | `multiplatform-settings` | Lưu form pre-fill |
 | Async | `kotlinx-coroutines` | ✅ Đã có transitively |
-| Image | `coil3-compose` (optional) | Ảnh đồng hồ |
 
 ---
 
-## 📁 Cấu Trúc Thư Mục
+## 📁 Cấu Trúc Thư Mục (thực tế)
 
 ```
 composeApp/src/commonMain/kotlin/com/example/appghichiso/
 ├── data/
 │   ├── api/
-│   │   ├── AuthApiService.kt
-│   │   ├── RouteApiService.kt
-│   │   ├── CustomerApiService.kt
-│   │   └── MeterReadingApiService.kt
+│   │   ├── ApiConfig.kt               # BASE_URL
+│   │   ├── AuthApiService.kt          # validate-user
+│   │   ├── RoadApiService.kt          # get-roads
+│   │   ├── CustomerApiService.kt      # get-customers-by-road
+│   │   ├── MeterReadingApiService.kt  # update-index
+│   │   ├── HttpClientFactory.kt       # expect fun createHttpClient()
+│   │   └── dto/                       # ApiStatus, DTOs
 │   ├── local/
-│   │   ├── TokenStorage.kt          # DataStore
-│   │   └── db/                      # SQLDelight schema
+│   │   └── CredentialsStorage.kt      # Settings – pre-fill only
 │   └── repository/
 │       ├── AuthRepositoryImpl.kt
-│       ├── RouteRepositoryImpl.kt
+│       ├── RoadRepositoryImpl.kt
 │       ├── CustomerRepositoryImpl.kt
 │       └── MeterReadingRepositoryImpl.kt
 ├── domain/
 │   ├── model/
-│   │   ├── User.kt
-│   │   ├── Route.kt
-│   │   ├── Customer.kt
-│   │   └── MeterReading.kt
+│   │   ├── Road.kt
+│   │   └── Customer.kt
 │   ├── repository/
 │   │   ├── AuthRepository.kt
-│   │   ├── RouteRepository.kt
+│   │   ├── RoadRepository.kt
 │   │   ├── CustomerRepository.kt
 │   │   └── MeterReadingRepository.kt
 │   └── usecase/
 │       ├── LoginUseCase.kt
-│       ├── GetRoutesUseCase.kt
-│       ├── GetCustomersByRouteUseCase.kt
+│       ├── GetRoadsUseCase.kt
+│       ├── GetCustomersUseCase.kt
 │       └── SubmitMeterReadingUseCase.kt
+├── session/
+│   └── SessionManager.kt              # ✅ In-memory auth singleton
 ├── presentation/
 │   ├── auth/
-│   │   ├── LoginScreen.kt
+│   │   ├── LoginScreen.kt             # pre-fill email + password
 │   │   └── AuthViewModel.kt
 │   ├── route/
-│   │   ├── RouteListScreen.kt
+│   │   ├── RouteListScreen.kt         # search + pull-to-refresh
 │   │   └── RouteViewModel.kt
 │   ├── customer/
-│   │   ├── CustomerListScreen.kt
+│   │   ├── CustomerListScreen.kt      # search + recorded badge
 │   │   └── CustomerViewModel.kt
 │   ├── reading/
-│   │   ├── MeterReadingScreen.kt
+│   │   ├── MeterReadingScreen.kt      # confirm dialog + submit
 │   │   └── MeterReadingViewModel.kt
 │   └── common/
 │       ├── LoadingIndicator.kt
 │       ├── ErrorView.kt
 │       └── UiState.kt
 ├── navigation/
-│   ├── AppNavGraph.kt
-│   └── Screen.kt
-└── di/
-    ├── NetworkModule.kt
-    ├── StorageModule.kt
-    ├── RepositoryModule.kt
-    ├── UseCaseModule.kt
-    └── ViewModelModule.kt
+│   └── AppNavGraph.kt                 # startDest = sessionManager.isActive
+├── di/
+│   ├── AppModule.kt
+│   ├── AppStateHolder.kt
+│   └── PlatformModule.kt
+└── util/
+    └── PlatformDate.kt                # expect currentYear/currentMonth
 ```
 
 ---
 
-## 📋 WBS (Work Breakdown Structure)
+## ✅ WBS — Trạng Thái Triển Khai
 
-### 1. Project Setup & Dependencies
-- 1.1 Thêm Ktor, Koin, SQLDelight, Navigation, Serialization, DataStore vào `libs.versions.toml`
-- 1.2 Cập nhật `composeApp/build.gradle.kts` với tất cả dependencies
-- 1.3 Tạo cấu trúc thư mục Clean Architecture
-- 1.4 Cấu hình SQLDelight plugin và schema
-- 1.5 Cấu hình Kotlin Serialization plugin
+### 1. Project Setup & Dependencies ✅
+- Ktor, Koin, Navigation, Serialization, `multiplatform-settings` trong `libs.versions.toml`
+- `composeApp/build.gradle.kts` cấu hình đầy đủ
+- `android:usesCleartextTraffic="true"` trong AndroidManifest
 
-### 2. Lớp Data — Remote
-- 2.1 Cấu hình Ktor HttpClient (base URL, headers, logging, timeout)
-- 2.2 Cài đặt auth interceptor (đính kèm JWT Bearer token vào request)
-- 2.3 `AuthApiService` — `POST /auth/login` → trả về token + thông tin nhân viên
-- 2.4 `RouteApiService` — `GET /routes` → danh sách tuyến được giao cho nhân viên
-- 2.5 `CustomerApiService` — `GET /routes/{routeId}/customers` → danh sách khách hàng
-- 2.6 `MeterReadingApiService` — `POST /readings` → gửi chỉ số mới
+### 2. SessionManager (In-Memory Auth) ✅
+- `session/SessionManager.kt` — Koin `single`
+- `activate(email, pw, month, year)` / `deactivate()`
+- `isActive: Boolean` — nguồn sự thật cho auth state
+- `unauthorizedEvent: SharedFlow<Unit>` — bắt 401 mid-session
 
-### 3. Lớp Data — Local & Storage
-- 3.1 `TokenStorage` với DataStore — lưu/đọc/xóa JWT token
-- 3.2 SQLDelight schema: bảng `routes`, `customers`, `last_readings`
-- 3.3 Implement SQLDelight queries: insert/select/delete
-- 3.4 Repository implementations với logic cache (remote → local fallback)
+### 3. Lớp Data — Remote ✅
+- `HttpClientFactory` — expect/actual (OkHttp / Darwin)
+- `HttpClient` đọc credentials từ `SessionManager` động tại mỗi request
+- `HttpResponseValidator` bắt 401 → `sessionManager.emitUnauthorized()`
+- `AuthApiService.validateUser()` — không cần Auth header (credentials trong URL)
+- `RoadApiService`, `CustomerApiService`, `MeterReadingApiService` — Basic Auth
 
-### 4. Lớp Domain
-- 4.1 Định nghĩa domain models: `User`, `Route`, `Customer`, `MeterReading`
-- 4.2 Định nghĩa repository interfaces (abstraction)
-- 4.3 `LoginUseCase` — xác thực, lưu token, trả về User
-- 4.4 `GetRoutesUseCase` — lấy danh sách tuyến (cache-aware)
-- 4.5 `GetCustomersByRouteUseCase` — lấy danh sách khách hàng theo tuyến
-- 4.6 `SubmitMeterReadingUseCase` — validate chỉ số (mới ≥ cũ), submit API
+### 4. Lớp Data — Local (Pre-fill) ✅
+- `CredentialsStorage` — `multiplatform-settings`
+- `save()` lưu email + password (chỉ khi rememberMe=true) cho pre-fill
+- `getSavedUsername()`, `getSavedPassword()`, `getSavedMonthYear()`
+- **Không có `isLoggedIn()`** — auth state do `SessionManager` quản lý
 
-### 5. Lớp Presentation — UI & ViewModel
+### 5. Lớp Domain ✅
+- Models: `Road`, `Customer`
+- Interfaces: `AuthRepository`, `RoadRepository`, `CustomerRepository`, `MeterReadingRepository`
+- Use Cases: `LoginUseCase`, `GetRoadsUseCase`, `GetCustomersUseCase`, `SubmitMeterReadingUseCase`
 
-#### 5.1 Common UI
-- `UiState<T>` sealed class: `Loading | Success(data) | Error(message)`
-- `LoadingIndicator` composable
-- `ErrorView` composable với nút Retry
+### 6. Lớp Presentation ✅
 
-#### 5.2 LoginScreen
-- Form nhập username / password
-- Nút đăng nhập với loading state
-- Hiển thị lỗi xác thực (sai mật khẩu, network error)
-- `AuthViewModel` xử lý login flow
+#### LoginScreen
+- Logo + tên công ty Tóc Tiên
+- Pre-fill email từ `savedUsername`, password từ `savedPassword` (nếu rememberMe)
+- Dropdown chọn Tháng / Năm ghi chỉ số
+- Checkbox "Ghi nhớ mật khẩu"
+- Button Đăng nhập với loading state
 
-#### 5.3 RouteListScreen
-- Danh sách tuyến dạng Card (tên tuyến, số khách hàng)
+#### RouteListScreen
+- Search theo tên/mã tuyến
 - Pull-to-refresh
-- Trạng thái loading / error / empty
-- `RouteViewModel` gọi `GetRoutesUseCase`
+- Icon Đăng xuất trên TopAppBar
 
-#### 5.4 CustomerListScreen
-- Danh sách khách hàng theo tuyến đã chọn
-- Tìm kiếm/lọc theo tên hoặc mã khách hàng
-- Hiển thị trạng thái đã ghi / chưa ghi trong tháng
-- `CustomerViewModel` gọi `GetCustomersByRouteUseCase`
+#### CustomerListScreen
+- Search theo tên/mã khách hàng
+- Badge ✅ đã ghi chỉ số (currentIndex > 0 hoặc trong `recordedCustomerCodes`)
+- Hiển thị tháng/năm kỳ ghi
 
-#### 5.5 MeterReadingScreen
-- Hiển thị thông tin khách hàng (tên, địa chỉ, mã đồng hồ)
-- Chỉ số kỳ trước (readonly, từ API/cache)
-- Ô nhập chỉ số kỳ này (numeric keyboard)
-- Tự động tính lượng tiêu thụ = chỉ số mới − chỉ số cũ
-- Nút chụp ảnh đồng hồ (optional)
-- Nút Lưu / Submit với confirmation dialog
-- `MeterReadingViewModel` gọi `SubmitMeterReadingUseCase`
+#### MeterReadingScreen
+- Thông tin khách hàng, chỉ số cũ
+- Ô nhập chỉ số mới (numeric keyboard)
+- Tính tiêu thụ tự động
+- Confirmation dialog trước khi submit
 
-### 6. Navigation
-- 6.1 Định nghĩa `sealed class Screen`: `Login`, `RouteList`, `CustomerList(routeId)`, `MeterReading(customerId)`
-- 6.2 `AppNavGraph` — NavHost kết nối tất cả màn hình
-- 6.3 Auth guard — kiểm tra token khi khởi động, redirect về Login nếu hết hạn
-- 6.4 Xử lý back stack đúng (CustomerList back về RouteList, không back về Login)
+### 7. Navigation ✅
+- `startDestination = if (sessionManager.isActive) RouteListRoute else LoginRoute`
+- `LaunchedEffect` lắng nghe `unauthorizedEvent` → deactivate + navigate LoginRoute
+- Back stack: CustomerList ↔ RouteList; Login bị xóa khỏi stack sau đăng nhập
 
-### 7. Dependency Injection (Koin)
-- 7.1 `NetworkModule` — HttpClient, API services
-- 7.2 `StorageModule` — TokenStorage, SQLDelight driver
-- 7.3 `RepositoryModule` — Repository implementations
-- 7.4 `UseCaseModule` — Use cases
-- 7.5 `ViewModelModule` — ViewModels
-- 7.6 Khởi tạo Koin trong `androidMain` (`Application.onCreate`) và `iosMain` (`MainViewController`)
+### 8. Dependency Injection ✅
+- `AppModule`: networkModule, repositoryModule, useCaseModule, viewModelModule, stateModule
+- `SessionManager` inject vào `HttpClient`, `AuthRepositoryImpl`, `AuthViewModel`
+- `platformModule()` — expect/actual: `Settings` (Android SharedPreferences / iOS NSUserDefaults)
 
-### 8. Platform-Specific (expect/actual)
-- 8.1 SQLDelight driver: `AndroidSqliteDriver` vs `NativeSqliteDriver`
-- 8.2 DataStore path: Android Context vs iOS NSDocumentDirectory
-- 8.3 (Optional) Camera: Android CameraX vs iOS UIImagePickerController
-
-### 9. Testing
-- 9.1 Unit test Use Cases với mock repositories
-- 9.2 Unit test ViewModels với Turbine (Flow testing)
-- 9.3 Integration test API services với MockEngine (Ktor)
-
-### 10. Build & Release
-- 10.1 Cấu hình build flavors (dev/staging/prod) với base URL khác nhau
-- 10.2 Android: ký APK/AAB, ProGuard rules cho Ktor/Koin
-- 10.3 iOS: cấu hình Xcode scheme, export IPA
+### 9. Platform-Specific ✅
+- `HttpClientFactory` — `AndroidSqliteDriver` không cần; OkHttp (Android) / Darwin (iOS)
+- `CredentialsStorage` — `multiplatform-settings` (không cần expect/actual)
+- `PlatformDate` — `expect currentYear/currentMonth` (kotlinx-datetime)
 
 ---
 
@@ -207,29 +200,36 @@ composeApp/src/commonMain/kotlin/com/example/appghichiso/
 ```
 App Start
    │
-   ├─ Token tồn tại & hợp lệ ──→ RouteListScreen
+   ├─ SessionManager.isActive = true (warm-start) ──→ RouteListScreen
    │
-   └─ Không có token ──→ LoginScreen
-                              │
-                         Đăng nhập thành công
-                              │
-                         RouteListScreen
-                         (Danh sách tuyến)
-                              │
-                         Chọn tuyến
-                              │
-                         CustomerListScreen
-                         (Danh sách khách hàng)
-                              │
-                         Chọn khách hàng
-                              │
-                         MeterReadingScreen
-                         (Nhập & gửi chỉ số)
-                              │
-                         Submit thành công
-                              │
-                         Back → CustomerListScreen
-                         (đánh dấu đã ghi ✅)
+   └─ SessionManager.isActive = false (cold-start / clear task)
+         │
+      LoginScreen
+      (pre-fill email/pw nếu rememberMe)
+         │
+      Nhấn Đăng nhập
+         │
+      validate-user API
+         │
+      ├─ Thành công → sessionManager.activate()
+      │                    │
+      │               RouteListScreen (search tuyến)
+      │                    │
+      │               Chọn tuyến
+      │                    │
+      │               CustomerListScreen (search khách hàng)
+      │                    │
+      │               Chọn khách hàng
+      │                    │
+      │               MeterReadingScreen (nhập + submit)
+      │                    │
+      │               Submit → Back → CustomerList ✅
+      │
+      ├─ Thất bại → Lỗi, ở lại LoginScreen
+      │
+      └─ 401 mid-session → unauthorizedEvent
+                              → sessionManager.deactivate()
+                              → LoginScreen (popUpTo 0)
 ```
 
 ---
@@ -238,58 +238,36 @@ App Start
 
 **Base URL:** `http://qlkh.toctienltd.vn`
 
-**Authentication:** `Basic Auth` — Header `Authorization: Basic <base64(email:password)>`
-> Ví dụ: `vananh@toctienltd.vn:123456` → `dmFuYW5oQHRvY3RpZW5sdGQudm46MTIzNDU2`
-> Tất cả API đều cần gửi header này.
+**Authentication:** `Basic Auth` — `Authorization: Basic <base64(email:password)>`
+> Tất cả API (trừ `validate-user`) cần header này — được gửi tự động từ `SessionManager`.
 
----
+### GET /api/jsonws/cm-portlet.api/validate-user/user-name/{email}/password/{password}
+```json
+{ "status": { "code": "success", "message": "Success" } }
+```
 
 ### GET /api/jsonws/cm-portlet.api/get-roads
-Trả về danh sách tuyến đường được giao.
 ```json
-{
-  "data": [
-    { "code": "DN1-MINH", "name": "DOANH NGHIỆP 1- MINH" }
-  ],
-  "status": { "code": "success", "message": "Success" }
-}
+{ "data": [{ "code": "DN1-MINH", "name": "DOANH NGHIỆP 1- MINH" }], "status": {...} }
 ```
 
 ### GET /api/jsonws/cm-portlet.api/get-customers-by-road/road-code/{roadCode}/year/{year}/month/{month}
-Trả về danh sách khách hàng theo tuyến, năm, tháng.
 ```json
-{
-  "data": [{
-    "contractCode": "22021611084400", "contractSerial": "",
-    "currentIndex": 0, "customerAddress": "Ấp 6, Xã Châu Pha, TP HCM",
-    "customerCode": "03700001", "customerName": "KHÁCH HÀNG KHÔNG GHI TÊN",
-    "customerPhone": "", "month": 3, "previousIndex": 0,
-    "priceSchemaName": "Nước sinh hoạt đô thị",
-    "roadCode": "KH", "roadName": "KH K GHI TÊN", "roadOrder": 1, "year": 2026
-  }],
-  "status": { "code": "success", "message": "Success" }
-}
+{ "data": [{ "customerCode": "...", "currentIndex": 0, "previousIndex": 0, ... }], "status": {...} }
 ```
 > `currentIndex = 0` → chưa ghi chỉ số tháng này.
 
-### GET /api/jsonws/cm-portlet.api/update-index/customer-code/{customerCode}/contract-code/{contractCode}/year/{year}/month/{month}/new-index/{newIndex}
-Ghi chỉ số nước mới. **Bắt buộc có Authorization header.**
+### GET /api/jsonws/cm-portlet.api/update-index/customer-code/{cc}/contract-code/{ctc}/year/{y}/month/{m}/new-index/{n}
 ```json
 { "status": { "code": "success", "message": "Success" } }
 ```
 
 ---
 
-## ⚠️ Further Considerations
+## ⚠️ Notes
 
-1. **Login không có API riêng** — Xác thực bằng cách gọi `get-roads` với credentials. Nếu trả về `status.code == "success"` → hợp lệ. Nếu 401/lỗi → sai thông tin.
-
-2. **HTTP (không phải HTTPS)** — Cần `android:usesCleartextTraffic="true"` trong AndroidManifest và `NSAllowsArbitraryLoads = true` trong iOS Info.plist.
-
-3. **Offline-first hay Online-only?** — MVP: online-only. Tương lai: cache bằng SQLDelight + WorkManager sync queue.
-
-4. **`currentIndex > 0`** — Dùng làm dấu hiệu đã ghi chỉ số tháng này. Session-local tracking bằng `AppStateHolder.recordedCustomerCodes`.
-
-5. **Tháng/Năm ghi chỉ số** — Lấy từ ngày hệ thống (`kotlinx-datetime`). Có thể thêm UI chọn tháng sau.
-
-
+1. **Session = Process lifetime** — `SessionManager` là Koin `single`. Mất khi process bị kill (clear task). Đây là hành vi mong muốn.
+2. **"Ghi nhớ mật khẩu" ≠ auto-login** — chỉ pre-fill form; user phải nhấn nút Đăng nhập thủ công.
+3. **HTTP** — `android:usesCleartextTraffic="true"` ✅ và `NSAllowsArbitraryLoads = true` (iOS).
+4. **`currentIndex > 0`** — server đã ghi; `AppStateHolder.recordedCustomerCodes` track phiên hiện tại.
+5. **Online-only MVP** — không có offline cache (SQLDelight/WorkManager có thể thêm sau).

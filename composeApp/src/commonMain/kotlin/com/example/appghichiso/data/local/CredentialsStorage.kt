@@ -29,6 +29,9 @@ class CredentialsStorage(private val settings: Settings) {
 
     fun getSavedUsername(): String? = settings.getStringOrNull(KEY_USERNAME)
 
+    /** Returns saved password only when rememberMe was true — used for form pre-fill only. */
+    fun getSavedPassword(): String? = settings.getStringOrNull(KEY_PASSWORD)
+
     fun getSavedMonthYear(): Pair<Int, Int>? {
         val month = settings.getIntOrNull(KEY_MONTH) ?: return null
         val year  = settings.getIntOrNull(KEY_YEAR)  ?: return null
