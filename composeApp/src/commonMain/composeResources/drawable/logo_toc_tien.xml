@@ -1,0 +1,97 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Sky blue circle background -->
+    <path
+        android:fillColor="#28A8E0"
+        android:pathData="M50,3A47,47,0,1,1,50,97A47,47,0,1,1,50,3Z"/>
+
+    <!-- Cross – vertical bar (dark maroon) -->
+    <path
+        android:fillColor="#9B1C1C"
+        android:pathData="M42,7H58V93H42Z"/>
+
+    <!-- Cross – horizontal bar (dark maroon) -->
+    <path
+        android:fillColor="#9B1C1C"
+        android:pathData="M7,42H93V58H7Z"/>
+
+    <!-- Golden yellow band – LEFT of vertical bar -->
+    <path
+        android:fillColor="#E8A820"
+        android:pathData="M7,42H42V58H7Z"/>
+
+    <!-- Golden yellow band – RIGHT of vertical bar -->
+    <path
+        android:fillColor="#E8A820"
+        android:pathData="M58,42H93V58H58Z"/>
+
+    <!-- Crosshatch grid lines on LEFT band -->
+    <path
+        android:strokeColor="#9B1C1C"
+        android:strokeWidth="1.1"
+        android:pathData="M7,42L14,58M14,42L21,58M21,42L28,58M28,42L35,58M35,42L42,58"/>
+    <path
+        android:strokeColor="#9B1C1C"
+        android:strokeWidth="1.1"
+        android:pathData="M14,42V58M21,42V58M28,42V58M35,42V58"/>
+
+    <!-- Crosshatch grid lines on RIGHT band -->
+    <path
+        android:strokeColor="#9B1C1C"
+        android:strokeWidth="1.1"
+        android:pathData="M58,42L65,58M65,42L72,58M72,42L79,58M79,42L86,58M86,42L93,58"/>
+    <path
+        android:strokeColor="#9B1C1C"
+        android:strokeWidth="1.1"
+        android:pathData="M65,42V58M72,42V58M79,42V58M86,42V58"/>
+
+    <!-- Wheat stalk – main stem (right side of cross) -->
+    <path
+        android:strokeColor="#E8A820"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000"
+        android:pathData="M73,70C73,58,72,48,70,28"/>
+
+    <!-- Wheat tip -->
+    <path
+        android:fillColor="#E8A820"
+        android:pathData="M70,25C73,20,77,23,75,28C73,31,70,29,70,26Z"/>
+
+    <!-- Wheat grain 1 – right -->
+    <path
+        android:fillColor="#E8A820"
+        android:pathData="M70,30C77,28,80,33,77,38C74,41,70,39,70,36Z"/>
+
+    <!-- Wheat grain 2 – left -->
+    <path
+        android:fillColor="#E8A820"
+        android:pathData="M70,37C63,35,60,40,63,45C66,48,70,46,70,43Z"/>
+
+    <!-- Wheat grain 3 – right -->
+    <path
+        android:fillColor="#E8A820"
+        android:pathData="M70,44C77,42,80,47,77,52C74,55,70,53,70,50Z"/>
+
+    <!-- Wheat grain 4 – left -->
+    <path
+        android:fillColor="#E8A820"
+        android:pathData="M70,51C63,49,60,54,63,59C66,62,70,60,70,57Z"/>
+
+    <!-- Wheat grain 5 – right -->
+    <path
+        android:fillColor="#E8A820"
+        android:pathData="M70,59C77,57,79,62,76,66C73,69,70,67,70,64Z"/>
+
+    <!-- Wavy water line at bottom -->
+    <path
+        android:strokeColor="#E8A820"
+        android:strokeWidth="2.8"
+        android:fillColor="#00000000"
+        android:pathData="M14,80Q22,74,30,80Q38,86,46,80Q54,74,62,80Q70,86,78,80Q84,75,88,78"/>
+
+</vector>
+

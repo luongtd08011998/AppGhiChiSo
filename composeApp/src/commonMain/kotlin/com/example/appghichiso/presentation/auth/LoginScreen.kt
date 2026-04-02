@@ -1,9 +1,7 @@
 package com.example.appghichiso.presentation.auth
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -52,8 +51,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import appghichiso.composeapp.generated.resources.Res
+import appghichiso.composeapp.generated.resources.logo_toc_tien
+import appghichiso.composeapp.generated.resources.logocty1
+import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,16 +92,15 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         ) {
             Spacer(Modifier.height(40.dp))
 
-            /* ── Logo ── */
-            Box(
+            /* ── Logo công ty ── */
+            Image(
+                painter = painterResource(Res.drawable.logocty1),
+                contentDescription = "Logo Công ty Nước Tóc Tiên",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .size(90.dp)
+                    .size(100.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("💧", fontSize = 44.sp)
-            }
+            )
 
             Spacer(Modifier.height(12.dp))
 
