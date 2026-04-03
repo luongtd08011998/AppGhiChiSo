@@ -1,28 +1,37 @@
 package com.example.appghichiso.presentation.customer
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -35,6 +44,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,6 +54,9 @@ import com.example.appghichiso.domain.model.Customer
 import com.example.appghichiso.presentation.common.ErrorView
 import com.example.appghichiso.presentation.common.LoadingIndicator
 import com.example.appghichiso.presentation.common.UiState
+import com.example.appghichiso.ui.theme.Cyan
+import com.example.appghichiso.ui.theme.OceanBlue
+import com.example.appghichiso.ui.theme.OceanBlueDark
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -61,11 +75,8 @@ fun CustomerListScreen(
     var searchQuery by remember { mutableStateOf("") }
     var isRefreshing by remember { mutableStateOf(false) }
 
-    LaunchedEffect(roadCode) {
-        viewModel.loadCustomers(roadCode)
-    }
+    LaunchedEffect(roadCode) { viewModel.loadCustomers(roadCode) }
 
-    // Lưu danh sách đầy đủ vào AppStateHolder để MeterReadingScreen có thể điều hướng qua lại
     LaunchedEffect(uiState) {
         if (uiState is UiState.Success) {
             appStateHolder.customerList = (uiState as UiState.Success<List<Customer>>).data
@@ -77,7 +88,7 @@ fun CustomerListScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text(roadName, maxLines = 1)
+                        Text(roadName, maxLines = 1, fontWeight = FontWeight.Bold)
                         Text(
                             "${viewModel.currentMonth}/${viewModel.currentYear}",
                             style = MaterialTheme.typography.bodySmall,
@@ -104,41 +115,90 @@ fun CustomerListScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Tìm theo tên hoặc mã KH...") },
-                singleLine = true,
+            /* ── Gradient search banner ── */
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            )
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(OceanBlueDark, OceanBlue, Cyan.copy(alpha = 0f)),
+                            startY = 0f, endY = 200f
+                        )
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Tìm theo tên hoặc mã KH...") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor      = Color.White.copy(alpha = 0.6f),
+                        focusedBorderColor        = Color.White,
+                        unfocusedPlaceholderColor = Color.White.copy(alpha = 0.7f),
+                        focusedPlaceholderColor   = Color.White.copy(alpha = 0.9f),
+                        unfocusedTextColor        = Color.White,
+                        focusedTextColor          = Color.White,
+                        cursorColor               = Color.White
+                    )
+                )
+            }
 
             when (val state = uiState) {
                 is UiState.Loading -> LoadingIndicator()
-                is UiState.Error -> ErrorView(
-                    message = state.message,
-                    onRetry = viewModel::refresh
-                )
+                is UiState.Error   -> ErrorView(message = state.message, onRetry = viewModel::refresh)
                 is UiState.Success -> {
-                    val filtered = state.data.filter { c ->
+                    val allCustomers = state.data
+                    val filtered = allCustomers.filter { c ->
                         searchQuery.isBlank() ||
                             c.customerName.contains(searchQuery, ignoreCase = true) ||
                             c.customerCode.contains(searchQuery, ignoreCase = true)
                     }
 
-                    // Show count summary
-                    val recorded = state.data.count {
+                    val recorded = allCustomers.count {
                         it.isRecorded || viewModel.isRecorded(it.customerCode)
                     }
-                    Text(
-                        text = "Đã ghi: $recorded / ${state.data.size}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
+                    val total = allCustomers.size
+                    val progress = if (total > 0) recorded / total.toFloat() else 0f
+
+                    /* Progress summary */
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Đã ghi: $recorded / $total khách",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "${(progress * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(Modifier.size(6.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.secondary,
+                            trackColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    }
 
                     PullToRefreshBox(
                         isRefreshing = isRefreshing,
@@ -151,14 +211,15 @@ fun CustomerListScreen(
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                                start = 12.dp, end = 12.dp, bottom = 16.dp
+                                start = 12.dp, end = 12.dp, top = 10.dp, bottom = 24.dp
                             )
                         ) {
                             items(filtered, key = { it.customerCode }) { customer ->
+                                val isRec = customer.isRecorded || viewModel.isRecorded(customer.customerCode)
                                 CustomerCard(
-                                    customer = customer,
-                                    isRecorded = customer.isRecorded || viewModel.isRecorded(customer.customerCode),
-                                    onClick = {
+                                    customer  = customer,
+                                    isRecorded = isRec,
+                                    onClick   = {
                                         appStateHolder.selectedCustomer = customer
                                         onCustomerSelected(customer)
                                     }
@@ -184,59 +245,94 @@ private fun CustomerCard(
         MaterialTheme.colorScheme.surface
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        modifier  = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape     = RoundedCornerShape(16.dp),
+        colors    = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            /* Avatar badge */
+            Surface(
+                shape    = CircleShape,
+                color    = if (isRecorded) MaterialTheme.colorScheme.secondary
+                           else MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
                     if (isRecorded) {
                         Icon(
                             Icons.Filled.CheckCircle,
                             contentDescription = "Đã ghi",
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(end = 4.dp)
+                            tint     = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Icon(
+                            Icons.Filled.Person,
+                            contentDescription = null,
+                            tint     = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
-                    Text(
-                        text = customer.customerName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
                 }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = customer.customerCode,
+                    text  = customer.customerName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text  = customer.customerCode,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = customer.customerAddress,
+                    text  = customer.customerAddress,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
-                Text(
-                    text = "Chỉ số cũ: ${customer.previousIndex}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (isRecorded) MaterialTheme.colorScheme.secondary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text  = "Chỉ số cũ: ${customer.previousIndex} m³",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isRecorded) MaterialTheme.colorScheme.secondary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (isRecorded) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.secondary
+                        ) {
+                            Text(
+                                "Đã ghi",
+                                style    = MaterialTheme.typography.labelSmall,
+                                color    = Color.White,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
             }
+
             Spacer(Modifier.width(8.dp))
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                tint     = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
             )
         }
     }
 }
-
