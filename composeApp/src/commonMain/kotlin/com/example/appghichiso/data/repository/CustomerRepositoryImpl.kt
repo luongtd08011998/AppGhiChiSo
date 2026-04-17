@@ -14,6 +14,7 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
                     .sortedBy { it.roadOrder }
                     .map { dto ->
                         Customer(
+                            customerId = dto.customerId,
                             contractCode = dto.contractCode,
                             contractSerial = dto.contractSerial,
                             customerCode = dto.customerCode,

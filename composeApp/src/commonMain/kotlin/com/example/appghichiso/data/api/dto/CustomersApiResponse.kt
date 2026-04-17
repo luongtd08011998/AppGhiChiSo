@@ -1,9 +1,14 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package com.example.appghichiso.data.api.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 
 @Serializable
 data class CustomerDto(
+    @JsonNames("customer_id")
+    val customerId: Int = 0,
     val contractCode: String = "",
     val contractSerial: String = "",
     val currentIndex: Int = 0,

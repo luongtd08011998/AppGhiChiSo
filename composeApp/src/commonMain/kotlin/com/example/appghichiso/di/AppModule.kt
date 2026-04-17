@@ -25,6 +25,7 @@ import com.example.appghichiso.presentation.route.RouteViewModel
 import com.example.appghichiso.session.SessionManager
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpResponseValidator
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BasicAuthCredentials
 import io.ktor.client.plugins.auth.providers.basic
@@ -77,6 +78,12 @@ private fun networkModule() = module {
                 logger = Logger.SIMPLE
                 level = LogLevel.BODY
             }
+            install(HttpTimeout) {
+                // Tăng timeout để tránh "Socket timeout has expired" khi server chậm
+                connectTimeoutMillis = 30_000
+                socketTimeoutMillis = 120_000
+                requestTimeoutMillis = 120_000
+            }
             // Intercept 401 — deactivate session and notify UI
             HttpResponseValidator {
                 validateResponse { response ->
@@ -112,7 +119,7 @@ private fun viewModelModule() = module {
     viewModel { AuthViewModel(get(), get(), get(), get<SessionManager>()) }
     viewModel { RouteViewModel(get()) }
     viewModel { CustomerViewModel(get(), get()) }
-    viewModel { MeterReadingViewModel(get()) }
+    viewModel { MeterReadingViewModel(get(), get()) }
 }
 
 private fun stateModule() = module {

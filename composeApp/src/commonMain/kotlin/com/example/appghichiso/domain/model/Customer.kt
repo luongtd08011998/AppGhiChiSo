@@ -1,6 +1,7 @@
 package com.example.appghichiso.domain.model
 
 data class Customer(
+    val customerId: Int,
     val contractCode: String,
     val contractSerial: String,
     val customerCode: String,
