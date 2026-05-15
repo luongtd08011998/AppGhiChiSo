@@ -7,7 +7,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.appghichiso.di.AppStateHolder
-import com.example.appghichiso.presentation.auth.AuthViewModel
 import com.example.appghichiso.presentation.auth.LoginScreen
 import com.example.appghichiso.presentation.customer.CustomerListScreen
 import com.example.appghichiso.presentation.reading.MeterReadingScreen
@@ -15,7 +14,6 @@ import com.example.appghichiso.presentation.route.RouteListScreen
 import com.example.appghichiso.session.SessionManager
 import kotlinx.serialization.Serializable
 import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
 
 /* ---------- Type-safe route objects (KMP-compatible, no Bundle getString) ---------- */
 
@@ -71,16 +69,9 @@ fun AppNavGraph() {
         }
 
         composable<RouteListRoute> {
-            val authViewModel = koinViewModel<AuthViewModel>()
             RouteListScreen(
                 onRoadSelected = { road ->
                     navController.navigate(CustomerListRoute(road.code, road.name))
-                },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(LoginRoute) {
-                        popUpTo(0) { inclusive = true }
-                    }
                 }
             )
         }

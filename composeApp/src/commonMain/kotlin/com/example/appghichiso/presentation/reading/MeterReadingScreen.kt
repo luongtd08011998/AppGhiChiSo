@@ -23,6 +23,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +37,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -42,6 +46,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,6 +93,8 @@ fun MeterReadingScreen(
     val submitState by viewModel.submitState.collectAsStateWithLifecycle()
     val previousMonthConsumption by viewModel.previousMonthConsumption.collectAsStateWithLifecycle()
     val historyState by viewModel.historyState.collectAsStateWithLifecycle()
+    val smsNumber by viewModel.smsNumber.collectAsStateWithLifecycle()
+    val smsUpdateState by viewModel.smsUpdateState.collectAsStateWithLifecycle()
 
     val customerList    = appStateHolder.customerList
     val initialCustomer = appStateHolder.selectedCustomer ?: run { onBack(); return }
@@ -118,6 +129,9 @@ fun MeterReadingScreen(
     var showWarningDialog  by rememberSaveable(currentIndex) { mutableStateOf(false) }
     var showConfirmDialog  by rememberSaveable(currentIndex) { mutableStateOf(false) }
     var showSuccessDialog  by rememberSaveable(currentIndex) { mutableStateOf(false) }
+    var showDetails        by rememberSaveable(currentIndex) { mutableStateOf(false) }
+    var showSmsEditDialog  by rememberSaveable(currentIndex) { mutableStateOf(false) }
+    val sheetState         = rememberModalBottomSheetState()
 
     LaunchedEffect(currentIndex) {
         viewModel.resetState()
@@ -235,11 +249,6 @@ fun MeterReadingScreen(
                                 "Tiêu thụ $prevPeriodHuman:",
                                 style = MaterialTheme.typography.bodySmall
                             )
-                            Text(
-                                "yearMonth=$prevYearMonthToken",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                         Text(
                             "$prevConsumption m³",
@@ -270,7 +279,7 @@ fun MeterReadingScreen(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
                     ) {
                         Text(
-                            "Tiêu thụ kỳ đang ghi ($currentPeriodHuman) ${if (isLowConsumption) "chỉ bằng" else "gấp"} $ratioText lần so với $prevPeriodHuman ($prevYearMonthToken). " +
+                            "Tiêu thụ kỳ đang ghi ($currentPeriodHuman) ${if (isLowConsumption) "chỉ bằng" else "gấp"} $ratioText lần so với $prevPeriodHuman. " +
                                 "Hãy kiểm tra lại đồng hồ nước!",
                             style  = MaterialTheme.typography.bodySmall,
                             color  = Color(0xFFBF360C),
@@ -280,8 +289,15 @@ fun MeterReadingScreen(
                     }
                 }
             },
-            confirmButton = {
+            dismissButton = {
                 Button(
+                    onClick = { showWarningDialog = false },
+                    shape  = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) { Text("Hủy, nhập lại") }
+            },
+            confirmButton = {
+                TextButton(
                     onClick = {
                         showWarningDialog = false
                         viewModel.submit(
@@ -292,15 +308,8 @@ fun MeterReadingScreen(
                             previousIndex = customer.previousIndex,
                             newIndex      = newIndex
                         )
-                    },
-                    shape  = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))
-                ) { Text("Đồng ý, lưu chỉ số") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showWarningDialog = false }) {
-                    Text("Hủy, nhập lại")
-                }
+                    }
+                ) { Text("Đồng ý, lưu chỉ số", color = Color(0xFFE65100)) }
             }
         )
     }
@@ -394,6 +403,135 @@ fun MeterReadingScreen(
         )
     }
 
+    /* ── SMS Edit dialog ── */
+    if (showSmsEditDialog) {
+        var editSmsText by remember(smsNumber) { mutableStateOf(smsNumber ?: "") }
+        val isSmsLoading = smsUpdateState is SmsUpdateState.Loading
+
+        AlertDialog(
+            onDismissRequest = {
+                if (!isSmsLoading) {
+                    showSmsEditDialog = false
+                    viewModel.resetSmsUpdateState()
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "Cập nhật số SMS",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "${customer.customerName} (${customer.customerCode})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = editSmsText,
+                        onValueChange = { editSmsText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Số điện thoại SMS", fontWeight = FontWeight.Bold) },
+                        placeholder = { Text("VD: 0912345678") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Phone,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        textStyle = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSmsLoading,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                    )
+                    when (val state = smsUpdateState) {
+                        is SmsUpdateState.Error -> {
+                            Card(
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Text(
+                                    state.message,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+                        is SmsUpdateState.Success -> {
+                            Card(
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFE8F5E9)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        "Cập nhật thành công!",
+                                        color = Color(0xFF2E7D32),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateSms(customer.customerCode, editSmsText.trim())
+                    },
+                    enabled = editSmsText.isNotBlank() && !isSmsLoading && smsUpdateState !is SmsUpdateState.Success,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isSmsLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text("Cập nhật")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showSmsEditDialog = false
+                        viewModel.resetSmsUpdateState()
+                    },
+                    enabled = !isSmsLoading
+                ) { Text("Đóng") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -420,21 +558,89 @@ fun MeterReadingScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(onClick = { showDetails = true }) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = "Chi tiết khách hàng",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
-        }
+        },
+
     ) { innerPadding ->
+        /* ── Modal Bottom Sheet for Details ── */
+        if (showDetails) {
+            ModalBottomSheet(
+                onDismissRequest = { showDetails = false },
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.surface,
+                dragHandle = {
+                    Surface(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        shape = CircleShape
+                    ) {
+                        Box(Modifier.size(width = 40.dp, height = 4.dp))
+                    }
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 32.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    /* Customer info card */
+                    Card(
+                        modifier  = Modifier.fillMaxWidth(),
+                        shape     = RoundedCornerShape(18.dp),
+                        colors    = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            SectionTitle("👤  Thông tin khách hàng")
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                color    = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            )
+                            InfoRow("Tên khách hàng",  customer.customerName)
+                            InfoRow("Mã khách hàng",   customer.customerCode)
+                            InfoRow("Mã hợp đồng",     customer.contractCode)
+                            if (customer.contractSerial.isNotBlank()) {
+                                InfoRow("Số seri đồng hồ",  customer.contractSerial)
+                            }
+                            InfoRow("Địa chỉ",         customer.customerAddress)
+                            if (customer.customerPhone.isNotBlank()) {
+                                InfoRow("Điện thoại",  customer.customerPhone)
+                            }
+                            InfoRow("SMS", smsNumber ?: "—")
+                            InfoRow("Tuyến",           customer.roadName)
+                            InfoRow("Loại giá",        customer.priceSchemaName)
+                            InfoRow("Kỳ ghi",          "Tháng ${customer.month}/${customer.year}")
+                        }
+                    }
+
+                    /* Consumption history chart */
+                    ConsumptionHistoryChart(historyState = historyState)
+                }
+            }
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(innerPadding),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
 
             /* ══ Gradient Navigation Bar (STT) ══ */
@@ -521,6 +727,17 @@ fun MeterReadingScreen(
                 }
             }
 
+            /* ══ Scrollable Cards section ══ */
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .imePadding(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
             /* ══ Cards section ══ */
             Column(
                 modifier = Modifier
@@ -529,59 +746,7 @@ fun MeterReadingScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
-                /* ── Already-recorded warning banner ── */
-                if (customer.isRecorded || appStateHolder.recordedCustomerCodes.contains(customer.customerCode)) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape    = RoundedCornerShape(14.dp),
-                        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("⚠️", fontSize = 18.sp)
-                            Text(
-                                "Kỳ này đã ghi: ${customer.currentIndex} m³ — bạn có thể cập nhật lại.",
-                                style      = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color      = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                        }
-                    }
-                }
 
-                /* ── Customer info card ── */
-                Card(
-                    modifier  = Modifier.fillMaxWidth(),
-                    shape     = RoundedCornerShape(18.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    colors    = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        SectionTitle("👤  Thông tin khách hàng")
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            color    = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        )
-                        InfoRow("Tên khách hàng",  customer.customerName)
-                        InfoRow("Mã khách hàng",   customer.customerCode)
-                        InfoRow("Mã hợp đồng",     customer.contractCode)
-                        if (customer.contractSerial.isNotBlank()) {
-                            InfoRow("Số seri HĐ",  customer.contractSerial)
-                        }
-                        InfoRow("Địa chỉ",         customer.customerAddress)
-                        if (customer.customerPhone.isNotBlank()) {
-                            InfoRow("Điện thoại",  customer.customerPhone)
-                        }
-                        InfoRow("Tuyến",           customer.roadName)
-                        InfoRow("Loại giá",        customer.priceSchemaName)
-                        InfoRow("Kỳ ghi",          "Tháng ${customer.month}/${customer.year}")
-                    }
-                }
 
                 /* ── Meter reading card ── */
                 Card(
@@ -610,13 +775,13 @@ fun MeterReadingScreen(
                             ) {
                                 Text(
                                     "Chỉ số kỳ trước",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
                                     "${customer.previousIndex} m³",
-                                    style      = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
+                                    style      = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.ExtraBold,
                                     color      = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -637,13 +802,13 @@ fun MeterReadingScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                                     Text(
-                                        "Sản lượng tiêu thụ nước tháng trước",
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        "Tiêu thụ tháng trước",
+                                        style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        "$prevPeriodHuman · yearMonth=$prevYearMonthToken",
+                                        "$prevPeriodHuman",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
                                     )
@@ -705,15 +870,21 @@ fun MeterReadingScreen(
                         OutlinedTextField(
                             value         = newIndexText,
                             onValueChange = { newIndexText = it.filter { c -> c.isDigit() } },
-                            label         = { Text("Chỉ số kỳ này (m³)") },
+                            label         = { Text("NHẬP CHỈ SỐ MỚI (m³)", fontWeight = FontWeight.Bold) },
                             singleLine    = true,
                             shape         = RoundedCornerShape(14.dp),
+                            textStyle     = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier      = Modifier.fillMaxWidth(),
                             isError       = newIndex != null && newIndex < customer.previousIndex,
                             colors        = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                focusedLabelColor  = MaterialTheme.colorScheme.primary
+                                focusedLabelColor  = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                             )
                         )
 
@@ -848,10 +1019,148 @@ fun MeterReadingScreen(
                     }
                 }
 
-                /* ── Consumption history chart ── */
-                ConsumptionHistoryChart(historyState = historyState)
+                /* ── Customer Info Summary ── */
+                Card(
+                    modifier  = Modifier.fillMaxWidth(),
+                    shape     = RoundedCornerShape(18.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        /* Tên + Mã KH */
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = customer.customerName.uppercase(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF0277BD),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp)
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFB2DFDB).copy(alpha = 0.7f)
+                            ) {
+                                Text(
+                                    text = customer.customerCode,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF004D40),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
 
-                Spacer(Modifier.height(16.dp))
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        )
+
+                        /* Địa chỉ */
+                        if (customer.customerAddress.isNotBlank()) {
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Địa chỉ: ") }
+                                    append(customer.customerAddress)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        /* Số seri đồng hồ */
+                        if (customer.contractSerial.isNotBlank()) {
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Seri ĐH: ") }
+                                    append(customer.contractSerial)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+
+                        /* ── SMS row: số điện thoại + nút sửa ── */
+                        Spacer(Modifier.height(8.dp))
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Default.Phone,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                    Column {
+                                        Text(
+                                            "Số SMS",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            smsNumber ?: "Đang tải...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                                Surface(
+                                    onClick = {
+                                        viewModel.resetSmsUpdateState()
+                                        showSmsEditDialog = true
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Sửa SMS",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                /* ConsumptionHistoryChart is now in the BottomSheet */
+
+                Spacer(Modifier.height(24.dp))
+            }
             }
         }
     }

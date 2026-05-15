@@ -1,5 +1,6 @@
 package com.example.appghichiso.presentation.auth
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -7,9 +8,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,7 +55,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -91,20 +96,26 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         if (uiState is LoginUiState.Success) onLoginSuccess()
     }
 
+    /* Detect keyboard open */
+    val imeHeight = WindowInsets.ime.getBottom(LocalDensity.current)
+    val imeVisible = imeHeight > 0
+    val headerHeight by animateDpAsState(
+        targetValue = if (imeVisible) 48.dp else 180.dp,
+        label = "headerHeight"
+    )
+
     Scaffold { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .imePadding()
         ) {
-            /* ══ Header gradient ══ */
+            /* ══ Header gradient (thu nhỏ khi bàn phím hiện) ══ */
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp)
+                    .height(headerHeight)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(OceanBlueDark, OceanBlue, Cyan)
@@ -112,242 +123,253 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Surface(
-                        shape  = CircleShape,
-                        color  = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.18f),
-                        modifier = Modifier.size(104.dp)
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.18f),
+                        modifier = Modifier.size(if (imeVisible) 32.dp else 80.dp)
                     ) {
                         Image(
                             painter = painterResource(Res.drawable.logocty1),
                             contentDescription = "Logo",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier
-                                .padding(6.dp)
+                                .padding(4.dp)
                                 .clip(CircleShape)
                         )
                     }
-                    Text(
-                        text = "CÔNG TY NƯỚC TÓC TIÊN",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = androidx.compose.ui.graphics.Color.White,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "Hệ thống ghi chỉ số nước",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f)
-                    )
+                    if (!imeVisible) {
+                        Column {
+                            Text(
+                                text = "CÔNG TY NƯỚC TÓC TIÊN",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = "Hệ thống ghi chỉ số nước",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
+                        }
+                    }
                 }
             }
 
-            /* ══ Form card ══ */
-            Card(
+            /* ══ Form card (scrollable + imePadding) ══ */
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
                     .padding(horizontal = 20.dp)
-                    .padding(top = 0.dp),
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp,
-                    bottomStart = 20.dp, bottomEnd = 20.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(
+                        topStart = 28.dp, topEnd = 28.dp,
+                        bottomStart = 20.dp, bottomEnd = 20.dp
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
-                    Text(
-                        "Đăng nhập",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    /* ── Email ── */
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text("Email") },
-                        placeholder = { Text("email@toctienltd.vn") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = uiState is LoginUiState.Error,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor  = MaterialTheme.colorScheme.primary
-                        )
-                    )
-
-                    /* ── Mật khẩu ── */
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Mật khẩu") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        visualTransformation = if (showPassword) VisualTransformation.None
-                        else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(onDone = {
-                            val y = selectedYear.toIntOrNull() ?: viewModel.initialYear
-                            viewModel.login(username, password, rememberMe, selectedMonth, y)
-                        }),
-                        trailingIcon = {
-                            TextButton(onClick = { showPassword = !showPassword }) {
-                                Text(
-                                    if (showPassword) "Ẩn" else "Hiện",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(passwordFocus),
-                        isError = uiState is LoginUiState.Error,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor  = MaterialTheme.colorScheme.primary
-                        )
-                    )
-
-                    /* ── Kỳ ghi chỉ số ── */
-                    Text(
-                        "Kỳ ghi chỉ số",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Column(
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        ExposedDropdownMenuBox(
-                            expanded = monthExpanded,
-                            onExpandedChange = { monthExpanded = !monthExpanded },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            OutlinedTextField(
-                                value = "Tháng $selectedMonth",
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Tháng") },
-                                shape = RoundedCornerShape(12.dp),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(monthExpanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    focusedLabelColor  = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                            ExposedDropdownMenu(
-                                expanded = monthExpanded,
-                                onDismissRequest = { monthExpanded = false }
-                            ) {
-                                (1..12).forEach { m ->
-                                    DropdownMenuItem(
-                                        text = { Text("Tháng $m") },
-                                        onClick = { selectedMonth = m; monthExpanded = false }
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            "Đăng nhập",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
 
+                        /* ── Email ── */
                         OutlinedTextField(
-                            value = selectedYear,
-                            onValueChange = { if (it.length <= 4) selectedYear = it.filter(Char::isDigit) },
-                            label = { Text("Năm") },
+                            value = username,
+                            onValueChange = { username = it },
+                            label = { Text("Email") },
+                            placeholder = { Text("email@toctienltd.vn") },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.width(110.dp),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Email,
+                                imeAction = ImeAction.Next
+                            ),
+                            keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }),
+                            modifier = Modifier.fillMaxWidth(),
+                            isError = uiState is LoginUiState.Error,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                focusedLabelColor  = MaterialTheme.colorScheme.primary
+                                focusedLabelColor = MaterialTheme.colorScheme.primary
                             )
                         )
-                    }
 
-                    /* ── Ghi nhớ mật khẩu ── */
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Checkbox(
-                            checked = rememberMe,
-                            onCheckedChange = { rememberMe = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                        Text("Ghi nhớ mật khẩu", style = MaterialTheme.typography.bodyMedium)
-                    }
-
-                    /* ── Error message ── */
-                    if (uiState is LoginUiState.Error) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
+                        /* ── Mật khẩu ── */
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("Mật khẩu") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            visualTransformation = if (showPassword) VisualTransformation.None
+                            else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Password,
+                                imeAction = ImeAction.Done
                             ),
-                            shape = RoundedCornerShape(10.dp)
+                            keyboardActions = KeyboardActions(onDone = {
+                                val y = selectedYear.toIntOrNull() ?: viewModel.initialYear
+                                viewModel.login(username, password, rememberMe, selectedMonth, y)
+                            }),
+                            trailingIcon = {
+                                TextButton(onClick = { showPassword = !showPassword }) {
+                                    Text(
+                                        if (showPassword) "Ẩn" else "Hiện",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(passwordFocus),
+                            isError = uiState is LoginUiState.Error,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+
+                        /* ── Kỳ ghi chỉ số ── */
+                        Text(
+                            "Kỳ ghi chỉ số",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(
-                                text = "⚠️ ${(uiState as LoginUiState.Error).message}",
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(12.dp)
+                            ExposedDropdownMenuBox(
+                                expanded = monthExpanded,
+                                onExpandedChange = { monthExpanded = !monthExpanded },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                OutlinedTextField(
+                                    value = "Tháng $selectedMonth",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Tháng") },
+                                    shape = RoundedCornerShape(12.dp),
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(monthExpanded) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        focusedLabelColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = monthExpanded,
+                                    onDismissRequest = { monthExpanded = false }
+                                ) {
+                                    (1..12).forEach { m ->
+                                        DropdownMenuItem(
+                                            text = { Text("Tháng $m") },
+                                            onClick = { selectedMonth = m; monthExpanded = false }
+                                        )
+                                    }
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = selectedYear,
+                                onValueChange = { if (it.length <= 4) selectedYear = it.filter(Char::isDigit) },
+                                label = { Text("Năm") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.width(110.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    focusedLabelColor = MaterialTheme.colorScheme.primary
+                                )
                             )
                         }
-                    }
 
-                    /* ── Button đăng nhập ── */
-                    Button(
-                        onClick = {
-                            val y = selectedYear.toIntOrNull() ?: viewModel.initialYear
-                            viewModel.login(username, password, rememberMe, selectedMonth, y)
-                        },
-                        enabled = !isLoading,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.5.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
+                        /* ── Ghi nhớ mật khẩu ── */
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = rememberMe,
+                                onCheckedChange = { rememberMe = it },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = MaterialTheme.colorScheme.primary
+                                )
                             )
-                        } else {
-                            Text(
-                                "ĐĂNG NHẬP",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
+                            Text("Ghi nhớ mật khẩu", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+                        /* ── Error message ── */
+                        if (uiState is LoginUiState.Error) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text = "⚠️ ${(uiState as LoginUiState.Error).message}",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
+
+                        /* ── Button đăng nhập ── */
+                        Button(
+                            onClick = {
+                                val y = selectedYear.toIntOrNull() ?: viewModel.initialYear
+                                viewModel.login(username, password, rememberMe, selectedMonth, y)
+                            },
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp)
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.5.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Text(
+                                    "ĐĂNG NHẬP",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp))
+            }
         }
     }
 }

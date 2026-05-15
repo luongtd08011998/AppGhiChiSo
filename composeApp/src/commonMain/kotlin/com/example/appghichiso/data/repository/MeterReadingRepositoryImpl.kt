@@ -18,10 +18,24 @@ class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService)
             if (response.status.code == "success") {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.status.message))
+                val msg = response.status.message
+                val friendly = when {
+                    msg.contains("request is invalid", ignoreCase = true) ->
+                        "Chỉ số đã được chốt, không thể cập nhật lại"
+                    else -> msg.ifBlank { "Ghi chỉ số thất bại" }
+                }
+                Result.failure(Exception(friendly))
             }
         } catch (e: Exception) {
-            Result.failure(Exception("Ghi chỉ số thất bại: ${e.message}"))
+            val msg = e.message ?: ""
+            val friendly = when {
+                msg.contains("request is invalid", ignoreCase = true) ->
+                    "Chỉ số đã được chốt, không thể cập nhật lại"
+                msg.contains("400", ignoreCase = true) ->
+                    "Chỉ số đã được chốt, không thể cập nhật lại"
+                else -> "Ghi chỉ số thất bại: $msg"
+            }
+            Result.failure(Exception(friendly))
         }
     }
 
