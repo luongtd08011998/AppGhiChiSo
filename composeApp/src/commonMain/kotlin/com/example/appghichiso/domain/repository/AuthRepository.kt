@@ -13,6 +13,7 @@ interface AuthRepository {
     fun getSavedUsername(): String?
     fun getSavedPassword(): String?
     fun getSavedMonthYear(): Pair<Int, Int>?
+    fun saveMonthYear(month: Int, year: Int)
     fun isRememberMe(): Boolean
 }
 

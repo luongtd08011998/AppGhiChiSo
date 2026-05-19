@@ -42,6 +42,12 @@ class SessionManager {
         this.isActive = true
     }
 
+    /** Update billing period without full re-login. */
+    fun updateBillingPeriod(month: Int, year: Int) {
+        billingMonth = month
+        billingYear = year
+    }
+
     /** Called on explicit logout or when a 401 is received. Clears all in-memory state. */
     fun deactivate() {
         isActive = false

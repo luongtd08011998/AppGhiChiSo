@@ -49,6 +49,10 @@ class AuthRepositoryImpl(
 
     override fun getSavedMonthYear(): Pair<Int, Int>? = credentialsStorage.getSavedMonthYear()
 
+    override fun saveMonthYear(month: Int, year: Int) {
+        credentialsStorage.saveMonthYear(month, year)
+    }
+
     override fun isRememberMe(): Boolean = credentialsStorage.isRememberMe()
 }
 

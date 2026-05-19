@@ -145,13 +145,15 @@ fun CustomerListScreen(
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor      = Color.White.copy(alpha = 0.6f),
+                        unfocusedBorderColor      = Color.White.copy(alpha = 0.4f),
                         focusedBorderColor        = Color.White,
-                        unfocusedPlaceholderColor = Color.White.copy(alpha = 0.7f),
-                        focusedPlaceholderColor   = Color.White.copy(alpha = 0.9f),
-                        unfocusedTextColor        = Color.White,
-                        focusedTextColor          = Color.White,
-                        cursorColor               = Color.White
+                        unfocusedContainerColor   = Color.White.copy(alpha = 0.9f),
+                        focusedContainerColor     = Color.White,
+                        unfocusedPlaceholderColor = Color(0xFF888888),
+                        focusedPlaceholderColor   = Color(0xFF999999),
+                        unfocusedTextColor        = Color(0xFF333333),
+                        focusedTextColor          = Color(0xFF222222),
+                        cursorColor               = OceanBlue
                     )
                 )
             }
