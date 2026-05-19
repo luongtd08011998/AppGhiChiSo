@@ -4,16 +4,19 @@ import com.example.appghichiso.data.api.AuthApiService
 import com.example.appghichiso.data.api.CustomerApiService
 import com.example.appghichiso.data.api.MeterReadingApiService
 import com.example.appghichiso.data.api.RoadApiService
+import com.example.appghichiso.data.api.SmsApiService
 import com.example.appghichiso.data.api.createHttpClient
 import com.example.appghichiso.data.local.CredentialsStorage
 import com.example.appghichiso.data.repository.AuthRepositoryImpl
 import com.example.appghichiso.data.repository.CustomerRepositoryImpl
 import com.example.appghichiso.data.repository.MeterReadingRepositoryImpl
 import com.example.appghichiso.data.repository.RoadRepositoryImpl
+import com.example.appghichiso.data.repository.SmsRepositoryImpl
 import com.example.appghichiso.domain.repository.AuthRepository
 import com.example.appghichiso.domain.repository.CustomerRepository
 import com.example.appghichiso.domain.repository.MeterReadingRepository
 import com.example.appghichiso.domain.repository.RoadRepository
+import com.example.appghichiso.domain.repository.SmsRepository
 import com.example.appghichiso.domain.usecase.GetCustomersUseCase
 import com.example.appghichiso.domain.usecase.GetRoadsUseCase
 import com.example.appghichiso.domain.usecase.LoginUseCase
@@ -99,6 +102,7 @@ private fun networkModule() = module {
     single { RoadApiService(get()) }
     single { CustomerApiService(get()) }
     single { MeterReadingApiService(get()) }
+    single { SmsApiService(get(), get()) }
 }
 
 private fun repositoryModule() = module {
@@ -106,6 +110,7 @@ private fun repositoryModule() = module {
     single<RoadRepository> { RoadRepositoryImpl(get()) }
     single<CustomerRepository> { CustomerRepositoryImpl(get()) }
     single<MeterReadingRepository> { MeterReadingRepositoryImpl(get()) }
+    single<SmsRepository> { SmsRepositoryImpl(get()) }
 }
 
 private fun useCaseModule() = module {
@@ -119,7 +124,7 @@ private fun viewModelModule() = module {
     viewModel { AuthViewModel(get(), get(), get(), get<SessionManager>()) }
     viewModel { RouteViewModel(get()) }
     viewModel { CustomerViewModel(get(), get()) }
-    viewModel { MeterReadingViewModel(get(), get()) }
+    viewModel { MeterReadingViewModel(get(), get(), get()) }
 }
 
 private fun stateModule() = module {

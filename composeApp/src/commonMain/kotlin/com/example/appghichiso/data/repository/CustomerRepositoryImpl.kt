@@ -10,7 +10,7 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
         return try {
             val response = apiService.getCustomers(roadCode, year, month)
             if (response.status.code == "success") {
-                val customers = response.data
+                val customers = (response.data ?: emptyList())
                     .sortedBy { it.roadOrder }
                     .map { dto ->
                         Customer(
@@ -33,7 +33,14 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
                     }
                 Result.success(customers)
             } else {
-                Result.failure(Exception(response.status.message))
+                val msg = response.status.message
+                val friendly = when {
+                    msg.contains("error occur", ignoreCase = true) ||
+                        response.data == null ->
+                        "Chưa mở ghi chỉ số kỳ $month. Vui lòng đăng nhập lại!"
+                    else -> msg
+                }
+                Result.failure(Exception(friendly))
             }
         } catch (e: Exception) {
             Result.failure(Exception("Không thể tải danh sách khách hàng: ${e.message}"))

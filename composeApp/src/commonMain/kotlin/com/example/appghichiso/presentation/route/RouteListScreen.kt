@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Card
@@ -58,8 +57,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteListScreen(
-    onRoadSelected: (Road) -> Unit,
-    onLogout: () -> Unit
+    onRoadSelected: (Road) -> Unit
 ) {
     val viewModel = koinViewModel<RouteViewModel>()
     val appStateHolder = koinInject<AppStateHolder>()
@@ -85,16 +83,7 @@ fun RouteListScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                actions = {
-                    IconButton(onClick = onLogout) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Đăng xuất",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                }
+                )
             )
         }
     ) { innerPadding ->

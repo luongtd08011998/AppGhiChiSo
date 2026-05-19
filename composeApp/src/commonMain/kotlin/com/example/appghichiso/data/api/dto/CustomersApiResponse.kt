@@ -33,7 +33,7 @@ data class CustomerDto(
 
 @Serializable
 data class CustomersApiResponse(
-    val data: List<CustomerDto>,
+    val data: List<CustomerDto>? = null,
     val status: ApiStatus
 )
 
