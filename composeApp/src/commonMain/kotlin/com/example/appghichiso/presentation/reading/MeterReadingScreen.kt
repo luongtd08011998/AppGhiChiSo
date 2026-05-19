@@ -77,7 +77,9 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun MeterReadingScreen(
     onBack: () -> Unit,
-    onSubmitSuccess: () -> Unit
+    onSubmitSuccess: () -> Unit,
+    onPrintNotice: (customerCode: String) -> Unit,
+    onPrintReceipt: (customerCode: String) -> Unit
 ) {
     val viewModel      = koinViewModel<MeterReadingViewModel>()
     val appStateHolder = koinInject<AppStateHolder>()
@@ -370,26 +372,46 @@ fun MeterReadingScreen(
             },
             text = { Text("Chỉ số ${customer.customerName} đã được cập nhật.") },
             confirmButton = {
-                Button(
-                    onClick = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Button(
+                        onClick = {
+                            showSuccessDialog = false
+                            viewModel.resetState()
+                            appStateHolder.recordedCustomerCodes.add(customer.customerCode)
+                            onPrintNotice(customer.customerCode)
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0277BD))
+                    ) {
+                        Text("🖨 In Giấy Báo & Thanh Toán", fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = {
+                            showSuccessDialog = false
+                            viewModel.resetState()
+                            appStateHolder.recordedCustomerCodes.add(customer.customerCode)
+                            if (currentIndex < customerList.size - 1) currentIndex++
+                            else onSubmitSuccess()
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (currentIndex < customerList.size - 1) "Khách tiếp theo →" else "Quay lại danh sách")
+                    }
+                    
+                    TextButton(onClick = {
                         showSuccessDialog = false
                         viewModel.resetState()
                         appStateHolder.recordedCustomerCodes.add(customer.customerCode)
-                        if (currentIndex < customerList.size - 1) currentIndex++
-                        else onSubmitSuccess()
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (currentIndex < customerList.size - 1) "Khách tiếp theo →" else "Quay lại danh sách")
+                        onSubmitSuccess()
+                    }) { Text("Về danh sách", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showSuccessDialog = false
-                    viewModel.resetState()
-                    appStateHolder.recordedCustomerCodes.add(customer.customerCode)
-                    onSubmitSuccess()
-                }) { Text("Về danh sách") }
             }
         )
     }
@@ -845,6 +867,31 @@ fun MeterReadingScreen(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
                         )
+                    }
+                }
+                
+                /* ── Print Notice & Receipt button (for already recorded customers) ── */
+                if (customer.isRecorded || appStateHolder.recordedCustomerCodes.contains(customer.customerCode)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick  = { onPrintNotice(customer.customerCode) },
+                            shape    = RoundedCornerShape(12.dp),
+                            colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF0277BD)),
+                            modifier = Modifier.weight(1f).height(50.dp)
+                        ) {
+                            Text("🖨 In Giấy Báo", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick  = { onPrintReceipt(customer.customerCode) },
+                            shape    = RoundedCornerShape(12.dp),
+                            colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                            modifier = Modifier.weight(1f).height(50.dp)
+                        ) {
+                            Text("✅ In Biên Nhận", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 

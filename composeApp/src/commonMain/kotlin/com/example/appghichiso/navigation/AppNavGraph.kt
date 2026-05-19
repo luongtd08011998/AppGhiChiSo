@@ -31,6 +31,12 @@ data class CustomerListRoute(val roadCode: String, val roadName: String)
 @Serializable
 object MeterReadingRoute
 
+@Serializable
+data class WaterNoticeRoute(val customerCode: String)
+
+@Serializable
+data class PaymentReceiptRoute(val customerCode: String)
+
 /* ---------- NavGraph ---------- */
 
 @Composable
@@ -100,7 +106,41 @@ fun AppNavGraph() {
         composable<MeterReadingRoute> {
             MeterReadingScreen(
                 onBack = { navController.popBackStack() },
-                onSubmitSuccess = { navController.popBackStack() }
+                onSubmitSuccess = { navController.popBackStack() },
+                onPrintNotice = { customerCode ->
+                    navController.navigate(WaterNoticeRoute(customerCode))
+                },
+                onPrintReceipt = { customerCode ->
+                    navController.navigate(PaymentReceiptRoute(customerCode))
+                }
+            )
+        }
+
+        composable<WaterNoticeRoute> { backStackEntry ->
+            val route: WaterNoticeRoute = backStackEntry.toRoute()
+            // We will import WaterNoticeScreen later
+            com.example.appghichiso.presentation.reading.WaterNoticeScreen(
+                customerCode = route.customerCode,
+                onBack = { navController.popBackStack() },
+                onPaymentSuccess = {
+                    // Navigate to Receipt, and pop the Notice screen
+                    navController.navigate(PaymentReceiptRoute(route.customerCode)) {
+                        popUpTo<WaterNoticeRoute> { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable<PaymentReceiptRoute> { backStackEntry ->
+            val route: PaymentReceiptRoute = backStackEntry.toRoute()
+            // We will import PaymentReceiptScreen later
+            com.example.appghichiso.presentation.reading.PaymentReceiptScreen(
+                customerCode = route.customerCode,
+                onBack = { navController.popBackStack() },
+                onFinish = {
+                    // Pop back to CustomerList
+                    navController.popBackStack(route = MeterReadingRoute, inclusive = true)
+                }
             )
         }
     }
