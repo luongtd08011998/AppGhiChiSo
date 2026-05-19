@@ -405,6 +405,12 @@ fun MeterReadingScreen(
                             showSuccessDialog = false
                             viewModel.resetState()
                             appStateHolder.recordedCustomerCodes.add(customer.customerCode)
+                            
+                            // Cập nhật chỉ số mới vào danh sách gốc để nhớ khi quay lại
+                            val updatedList = appStateHolder.customerList.toMutableList()
+                            updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
+                            appStateHolder.customerList = updatedList
+
                             if (currentIndex < customerList.size - 1) currentIndex++
                             else onSubmitSuccess()
                         },
@@ -413,25 +419,6 @@ fun MeterReadingScreen(
                     ) {
                         Text(if (currentIndex < customerList.size - 1) "Khách tiếp theo →" else "Quay lại danh sách")
                     }
-                    
-                    TextButton(onClick = {
-                        showSuccessDialog = false
-                        viewModel.resetState()
-                        appStateHolder.recordedCustomerCodes.add(customer.customerCode)
-
-
-                        
-                        // Cập nhật chỉ số mới vào danh sách gốc để nhớ khi quay lại
-                        val updatedList = appStateHolder.customerList.toMutableList()
-                        updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
-                        appStateHolder.customerList = updatedList
-
-                        if (currentIndex < customerList.size - 1) currentIndex++
-                        else onSubmitSuccess()
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (currentIndex < customerList.size - 1) "Khách tiếp theo →" else "Quay lại danh sách")
                 }
             },
             dismissButton = {
@@ -788,15 +775,6 @@ fun MeterReadingScreen(
             ) {
 
             /* ══ Cards section ══ */
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-
-
                 /* ── Meter reading card ── */
                 Card(
                     modifier  = Modifier.fillMaxWidth(),
@@ -1234,7 +1212,6 @@ fun MeterReadingScreen(
                 /* ConsumptionHistoryChart is now in the BottomSheet */
 
                 Spacer(Modifier.height(24.dp))
-            }
             }
         }
     }
