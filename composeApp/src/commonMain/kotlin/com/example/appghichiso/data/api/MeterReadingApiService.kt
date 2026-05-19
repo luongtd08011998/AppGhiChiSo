@@ -1,5 +1,6 @@
 package com.example.appghichiso.data.api
 
+import com.example.appghichiso.data.api.dto.ConsumptionHistoryResponse
 import com.example.appghichiso.data.api.dto.MonthInvoiceReadingResponse
 import com.example.appghichiso.data.api.dto.UpdateIndexApiResponse
 import io.ktor.client.HttpClient
@@ -51,5 +52,15 @@ class MeterReadingApiService(private val client: HttpClient) {
         client.get(
             "$SLN_URL/api/v1/qlkh/month-invoices/readings" +
                 "?fromYearMonth=$fromYearMonth&toYearMonth=$toYearMonth"
+        ).body()
+
+    suspend fun getConsumptionHistory(
+        customerCode: String,
+        fromYearMonth: String,
+        toYearMonth: String
+    ): ConsumptionHistoryResponse =
+        client.get(
+            "$SLN_URL/api/v1/qlkh/month-invoices/consumption-history" +
+                "?customerCode=$customerCode&fromYearMonth=$fromYearMonth&toYearMonth=$toYearMonth"
         ).body()
 }

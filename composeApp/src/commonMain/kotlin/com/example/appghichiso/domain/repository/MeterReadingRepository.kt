@@ -30,4 +30,13 @@ interface MeterReadingRepository {
         toYearMonth: String,
         previousIndex: Int
     ): Result<List<Pair<String, Int>>>
+
+    /**
+     * Lịch sử tiêu thụ 6 tháng qua API consumption-history (1 request duy nhất).
+     */
+    suspend fun getConsumptionHistoryFast(
+        customerCode: String,
+        fromYearMonth: String,
+        toYearMonth: String
+    ): Result<List<Pair<String, Int>>>
 }

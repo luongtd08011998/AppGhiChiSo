@@ -76,16 +76,14 @@ class MeterReadingViewModel(
         val toYearMonth = "$year${month.toString().padStart(2, '0')}"
 
         viewModelScope.launch {
+            // Lịch sử + tiêu thụ tháng trước (1 request duy nhất qua API mới)
             launch {
-                meterReadingRepository.getPreviousMonthConsumption(customerCode, prevYearMonth, previousIndex)
-                    .fold(
-                        onSuccess = { _previousMonthConsumption.value = it ?: -1 },
-                        onFailure = { _previousMonthConsumption.value = -1 }
-                    )
-            }
-
-            launch {
-                meterReadingRepository.getConsumptionHistory(customerCode, fromYearMonth, toYearMonth, previousIndex)
+                val historyResult = if (customerCode.isNotBlank()) {
+                    meterReadingRepository.getConsumptionHistoryFast(customerCode, fromYearMonth, toYearMonth)
+                } else {
+                    meterReadingRepository.getConsumptionHistory(customerCode, fromYearMonth, toYearMonth, previousIndex)
+                }
+                historyResult
                     .fold(
                         onSuccess = { pairs ->
                             val points = pairs.map { (ym, c) ->
@@ -96,11 +94,27 @@ class MeterReadingViewModel(
                                 )
                             }
                             _historyState.value = HistoryState.Success(points)
+
+                            // Lấy tiêu thụ tháng trước từ kết quả lịch sử, không cần gọi API riêng
+                            val prevConsumption = pairs.firstOrNull { it.first == prevYearMonth }?.second
+                            _previousMonthConsumption.value = prevConsumption ?: -1
                         },
                         onFailure = {
                             _historyState.value = HistoryState.Error(it.message ?: "Lỗi tải lịch sử")
+                            _previousMonthConsumption.value = -1
                         }
                     )
+            }
+
+            // Nếu dùng API cũ (không có customerCode) thì vẫn cần gọi riêng tiêu thụ tháng trước
+            if (customerCode.isBlank()) {
+                launch {
+                    meterReadingRepository.getPreviousMonthConsumption(customerCode, prevYearMonth, previousIndex)
+                        .fold(
+                            onSuccess = { _previousMonthConsumption.value = it ?: -1 },
+                            onFailure = { _previousMonthConsumption.value = -1 }
+                        )
+                }
             }
 
             launch {

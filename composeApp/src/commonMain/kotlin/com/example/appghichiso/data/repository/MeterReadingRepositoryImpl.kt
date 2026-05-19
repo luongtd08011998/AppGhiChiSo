@@ -146,6 +146,22 @@ class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService)
         return dto.digiCode.trim().equals(want, ignoreCase = true)
     }
 
+    override suspend fun getConsumptionHistoryFast(
+        customerCode: String,
+        fromYearMonth: String,
+        toYearMonth: String
+    ): Result<List<Pair<String, Int>>> {
+        return try {
+            val response = apiService.getConsumptionHistory(customerCode, fromYearMonth, toYearMonth)
+            val points = response.data
+                .filter { it.consumptionM3 != null }
+                .map { it.yearMonth to it.consumptionM3!! }
+            Result.success(points)
+        } catch (e: Exception) {
+            Result.failure(Exception("Không thể tải lịch sử tiêu thụ: ${e.message}"))
+        }
+    }
+
     private fun buildMonthRange(from: String, to: String): List<String> {
         val fromYear = from.substring(0, 4).toInt()
         val fromMonth = from.substring(4, 6).toInt()
