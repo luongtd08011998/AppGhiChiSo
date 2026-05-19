@@ -6,6 +6,7 @@ import com.example.appghichiso.domain.usecase.SubmitMeterReadingUseCase
 import com.example.appghichiso.domain.repository.MeterReadingRepository
 import com.example.appghichiso.domain.repository.SmsRepository
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +39,13 @@ sealed interface SmsUpdateState {
     data class Error(val message: String) : SmsUpdateState
 }
 
+sealed interface TvanInvoiceState {
+    data object Idle : TvanInvoiceState
+    data object Loading : TvanInvoiceState
+    data object Success : TvanInvoiceState
+    data class Error(val message: String) : TvanInvoiceState
+}
+
 class MeterReadingViewModel(
     private val submitMeterReadingUseCase: SubmitMeterReadingUseCase,
     private val meterReadingRepository: MeterReadingRepository,
@@ -60,6 +68,13 @@ class MeterReadingViewModel(
 
     private val _smsUpdateState = MutableStateFlow<SmsUpdateState>(SmsUpdateState.Idle)
     val smsUpdateState: StateFlow<SmsUpdateState> = _smsUpdateState.asStateFlow()
+
+    private val _tvanInvoiceState = MutableStateFlow<TvanInvoiceState>(TvanInvoiceState.Idle)
+    val tvanInvoiceState: StateFlow<TvanInvoiceState> = _tvanInvoiceState.asStateFlow()
+
+    /** Danh sách customerCode đã tạo TVAN thành công — chống tạo 2 lần. */
+    private val _tvanCreatedCodes = mutableSetOf<String>()
+    val tvanCreatedCodes: Set<String> get() = _tvanCreatedCodes
 
     fun loadCustomerData(customerCode: String, year: Int, month: Int, previousIndex: Int) {
         _previousMonthConsumption.value = null
@@ -131,7 +146,9 @@ class MeterReadingViewModel(
                 newIndex = newIndex,
                 previousIndex = previousIndex
             )
-                .onSuccess { _submitState.value = SubmitState.Success }
+                .onSuccess {
+                    _submitState.value = SubmitState.Success
+                }
                 .onFailure {
                     val msg = it.message ?: ""
                     val friendly = if (msg.contains("invali", ignoreCase = true))
@@ -162,6 +179,30 @@ class MeterReadingViewModel(
 
     fun resetSmsUpdateState() {
         _smsUpdateState.value = SmsUpdateState.Idle
+    }
+
+    /** Tạo hóa đơn TVAN. Chỉ tạo 1 lần duy nhất cho mỗi customerCode. */
+    fun createTvanInvoice(customerCode: String, year: Int, month: Int) {
+        if (_tvanCreatedCodes.contains(customerCode)) {
+            _tvanInvoiceState.value = TvanInvoiceState.Success
+            return
+        }
+        viewModelScope.launch {
+            _tvanInvoiceState.value = TvanInvoiceState.Loading
+            try {
+                // TODO: Thay bằng API thật khi BE sẵn sàng
+                delay(1500)
+                _tvanCreatedCodes.add(customerCode)
+                _tvanInvoiceState.value = TvanInvoiceState.Success
+            } catch (e: Exception) {
+                _tvanInvoiceState.value =
+                    TvanInvoiceState.Error(e.message ?: "Tạo hóa đơn TVAN thất bại")
+            }
+        }
+    }
+
+    fun resetTvanInvoiceState() {
+        _tvanInvoiceState.value = TvanInvoiceState.Idle
     }
 
     private fun shiftMonth(year: Int, month: Int, delta: Int): Pair<Int, Int> {

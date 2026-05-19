@@ -37,7 +37,7 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
                 val friendly = when {
                     msg.contains("error occur", ignoreCase = true) ||
                         response.data == null ->
-                        "Chưa mở ghi chỉ số kỳ $month. Vui lòng đăng nhập lại!"
+                        "Chưa mở ghi chỉ số kỳ $month. Vui lòng đổi kỳ ghi"
                     else -> msg
                 }
                 Result.failure(Exception(friendly))

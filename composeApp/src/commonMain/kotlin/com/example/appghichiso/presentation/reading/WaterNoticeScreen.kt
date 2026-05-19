@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.appghichiso.util.currentDateString
+import com.example.appghichiso.di.AppStateHolder
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +36,7 @@ fun WaterNoticeScreen(
     onPaymentSuccess: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val appStateHolder = koinInject<AppStateHolder>()
     var isConfirming by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -266,6 +269,7 @@ fun WaterNoticeScreen(
                         // Mock API Call delay
                         delay(1000)
                         isConfirming = false
+                        appStateHolder.paidCustomerCodes.add(customerCode)
                         onPaymentSuccess()
                     }
                 },

@@ -97,6 +97,7 @@ fun MeterReadingScreen(
     val historyState by viewModel.historyState.collectAsStateWithLifecycle()
     val smsNumber by viewModel.smsNumber.collectAsStateWithLifecycle()
     val smsUpdateState by viewModel.smsUpdateState.collectAsStateWithLifecycle()
+    val tvanInvoiceState by viewModel.tvanInvoiceState.collectAsStateWithLifecycle()
 
     val customerList    = appStateHolder.customerList
     val initialCustomer = appStateHolder.selectedCustomer ?: run { onBack(); return }
@@ -368,6 +369,20 @@ fun MeterReadingScreen(
 
     /* ── Success dialog ── */
     if (showSuccessDialog) {
+        val isTvanLoading = tvanInvoiceState is TvanInvoiceState.Loading
+        val tvanAlreadyCreated = viewModel.tvanCreatedCodes.contains(customer.customerCode)
+
+        // Tự động chuyển sang In giấy báo khi tạo hóa đơn TVAN thành công
+        LaunchedEffect(tvanInvoiceState) {
+            if (tvanInvoiceState is TvanInvoiceState.Success) {
+                showSuccessDialog = false
+                viewModel.resetState()
+                viewModel.resetTvanInvoiceState()
+                appStateHolder.recordedCustomerCodes.add(customer.customerCode)
+                onPrintNotice(customer.customerCode)
+            }
+        }
+
         AlertDialog(
             onDismissRequest = {},
             shape = RoundedCornerShape(20.dp),
@@ -379,34 +394,69 @@ fun MeterReadingScreen(
                     color = MaterialTheme.colorScheme.secondary
                 )
             },
-            text = { Text("Chỉ số ${customer.customerName} đã được cập nhật.") },
+            text = {
+                Column {
+                    Text("Chỉ số ${customer.customerName} đã được cập nhật.")
+                    if (isTvanLoading) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Text("Đang tạo hóa đơn TVAN...", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (tvanInvoiceState is TvanInvoiceState.Error) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            (tvanInvoiceState as TvanInvoiceState.Error).message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
             confirmButton = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Button(
-                        onClick = {
-                            showSuccessDialog = false
-                            viewModel.resetState()
-                            appStateHolder.recordedCustomerCodes.add(customer.customerCode)
-                            onPrintNotice(customer.customerCode)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0277BD))
-                    ) {
-                        Text("🖨 In Giấy Báo & Thanh Toán", fontWeight = FontWeight.Bold)
+                    // Nút Tạo hóa đơn TVAN — chỉ hiện nếu chưa tạo
+                    if (!tvanAlreadyCreated) {
+                        Button(
+                            onClick = {
+                                viewModel.createTvanInvoice(
+                                    customer.customerCode,
+                                    customer.year,
+                                    customer.month
+                                )
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0277BD)),
+                            enabled = !isTvanLoading
+                        ) {
+                            if (isTvanLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Text("Tạo hóa đơn TVAN", fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     Button(
                         onClick = {
                             showSuccessDialog = false
                             viewModel.resetState()
+                            viewModel.resetTvanInvoiceState()
                             appStateHolder.recordedCustomerCodes.add(customer.customerCode)
-                            
-                            // Cập nhật chỉ số mới vào danh sách gốc để nhớ khi quay lại
+
                             val updatedList = appStateHolder.customerList.toMutableList()
                             updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
                             appStateHolder.customerList = updatedList
@@ -415,26 +465,29 @@ fun MeterReadingScreen(
                             else onSubmitSuccess()
                         },
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isTvanLoading
                     ) {
                         Text(if (currentIndex < customerList.size - 1) "Khách tiếp theo →" else "Quay lại danh sách")
                     }
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showSuccessDialog = false
-                    viewModel.resetState()
-                    appStateHolder.recordedCustomerCodes.add(customer.customerCode)
-                    
-                    // Cập nhật chỉ số mới vào danh sách gốc
-                    val updatedList = appStateHolder.customerList.toMutableList()
-                    updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
-                    appStateHolder.customerList = updatedList
+                TextButton(
+                    onClick = {
+                        showSuccessDialog = false
+                        viewModel.resetState()
+                        viewModel.resetTvanInvoiceState()
+                        appStateHolder.recordedCustomerCodes.add(customer.customerCode)
 
-                    onSubmitSuccess()
-                }) { Text("Về danh sách") }
+                        val updatedList = appStateHolder.customerList.toMutableList()
+                        updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
+                        appStateHolder.customerList = updatedList
 
+                        onSubmitSuccess()
+                    },
+                    enabled = !isTvanLoading
+                ) { Text("Về danh sách") }
             }
         )
     }
@@ -1016,16 +1069,19 @@ fun MeterReadingScreen(
                 }
 
                 /* ── Submit button ── */
+                val tvanAlreadyCreated = viewModel.tvanCreatedCodes.contains(customer.customerCode)
                 Button(
                     onClick  = {
                         if (isAbnormalConsumption) showWarningDialog = true
                         else showConfirmDialog = true
                     },
                     enabled  = newIndex != null && newIndex >= customer.previousIndex
-                               && submitState !is SubmitState.Loading,
+                               && submitState !is SubmitState.Loading
+                               && !tvanAlreadyCreated,
                     shape    = RoundedCornerShape(16.dp),
                     colors   = ButtonDefaults.buttonColors(
-                        containerColor = if (isAbnormalConsumption) Color(0xFFE65100)
+                        containerColor = if (tvanAlreadyCreated) Color.Gray
+                                         else if (isAbnormalConsumption) Color(0xFFE65100)
                                          else MaterialTheme.colorScheme.primary
                     ),
                     modifier = Modifier.fillMaxWidth().height(56.dp)
@@ -1038,7 +1094,9 @@ fun MeterReadingScreen(
                         )
                     } else {
                         Text(
-                            if (customer.isRecorded) "Cập nhật chỉ số" else "Lưu chỉ số",
+                            if (tvanAlreadyCreated) "Đã tạo hóa đơn TVAN"
+                            else if (customer.isRecorded) "Cập nhật chỉ số"
+                            else "Lưu chỉ số",
                             style      = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
@@ -1052,21 +1110,27 @@ fun MeterReadingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
-                            onClick  = { onPrintNotice(customer.customerCode) },
-                            shape    = RoundedCornerShape(12.dp),
-                            colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF0277BD)),
-                            modifier = Modifier.weight(1f).height(50.dp)
-                        ) {
-                            Text("🖨 In Giấy Báo", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        // Chỉ hiện nút In Giấy Báo nếu TVAN đã tạo thành công
+                        if (viewModel.tvanCreatedCodes.contains(customer.customerCode)) {
+                            Button(
+                                onClick  = { onPrintNotice(customer.customerCode) },
+                                shape    = RoundedCornerShape(12.dp),
+                                colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF0277BD)),
+                                modifier = Modifier.weight(1f).height(50.dp)
+                            ) {
+                                Text("In Giấy Báo", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
-                        Button(
-                            onClick  = { onPrintReceipt(customer.customerCode) },
-                            shape    = RoundedCornerShape(12.dp),
-                            colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                            modifier = Modifier.weight(1f).height(50.dp)
-                        ) {
-                            Text("✅ In Biên Nhận", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        // Chỉ hiện nút In Biên Nhận nếu đã xác nhận thu tiền
+                        if (appStateHolder.paidCustomerCodes.contains(customer.customerCode)) {
+                            Button(
+                                onClick  = { onPrintReceipt(customer.customerCode) },
+                                shape    = RoundedCornerShape(12.dp),
+                                colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                modifier = Modifier.weight(1f).height(50.dp)
+                            ) {
+                                Text("In Biên Nhận", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
