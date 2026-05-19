@@ -384,6 +384,12 @@ fun MeterReadingScreen(
                         showSuccessDialog = false
                         viewModel.resetState()
                         appStateHolder.recordedCustomerCodes.add(customer.customerCode)
+                        
+                        // Cập nhật chỉ số mới vào danh sách gốc để nhớ khi quay lại
+                        val updatedList = appStateHolder.customerList.toMutableList()
+                        updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
+                        appStateHolder.customerList = updatedList
+
                         if (currentIndex < customerList.size - 1) currentIndex++
                         else onSubmitSuccess()
                     },
@@ -397,6 +403,12 @@ fun MeterReadingScreen(
                     showSuccessDialog = false
                     viewModel.resetState()
                     appStateHolder.recordedCustomerCodes.add(customer.customerCode)
+                    
+                    // Cập nhật chỉ số mới vào danh sách gốc
+                    val updatedList = appStateHolder.customerList.toMutableList()
+                    updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
+                    appStateHolder.customerList = updatedList
+
                     onSubmitSuccess()
                 }) { Text("Về danh sách") }
             }

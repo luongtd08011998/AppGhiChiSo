@@ -76,41 +76,40 @@ class MeterReadingViewModel(
         val toYearMonth = "$year${month.toString().padStart(2, '0')}"
 
         viewModelScope.launch {
-            val prevJob = async {
+            launch {
                 meterReadingRepository.getPreviousMonthConsumption(customerCode, prevYearMonth, previousIndex)
+                    .fold(
+                        onSuccess = { _previousMonthConsumption.value = it ?: -1 },
+                        onFailure = { _previousMonthConsumption.value = -1 }
+                    )
             }
-            val histJob = async {
+
+            launch {
                 meterReadingRepository.getConsumptionHistory(customerCode, fromYearMonth, toYearMonth, previousIndex)
+                    .fold(
+                        onSuccess = { pairs ->
+                            val points = pairs.map { (ym, c) ->
+                                ConsumptionPoint(
+                                    yearMonth = ym,
+                                    label = "${ym.substring(4, 6)}/${ym.substring(2, 4)}",
+                                    consumption = c
+                                )
+                            }
+                            _historyState.value = HistoryState.Success(points)
+                        },
+                        onFailure = {
+                            _historyState.value = HistoryState.Error(it.message ?: "Lỗi tải lịch sử")
+                        }
+                    )
             }
-            val smsJob = async {
+
+            launch {
                 smsRepository.getSms(customerCode)
+                    .fold(
+                        onSuccess = { _smsNumber.value = it },
+                        onFailure = { _smsNumber.value = null }
+                    )
             }
-
-            prevJob.await().fold(
-                onSuccess = { _previousMonthConsumption.value = it ?: -1 },
-                onFailure = { _previousMonthConsumption.value = -1 }
-            )
-
-            histJob.await().fold(
-                onSuccess = { pairs ->
-                    val points = pairs.map { (ym, c) ->
-                        ConsumptionPoint(
-                            yearMonth = ym,
-                            label = "${ym.substring(4, 6)}/${ym.substring(2, 4)}",
-                            consumption = c
-                        )
-                    }
-                    _historyState.value = HistoryState.Success(points)
-                },
-                onFailure = {
-                    _historyState.value = HistoryState.Error(it.message ?: "Lỗi tải lịch sử")
-                }
-            )
-
-            smsJob.await().fold(
-                onSuccess = { _smsNumber.value = it },
-                onFailure = { _smsNumber.value = null }
-            )
         }
     }
 

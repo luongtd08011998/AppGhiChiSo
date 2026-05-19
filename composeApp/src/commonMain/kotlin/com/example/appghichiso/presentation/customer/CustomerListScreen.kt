@@ -60,6 +60,12 @@ import com.example.appghichiso.ui.theme.OceanBlueDark
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
+enum class CustomerFilter(val label: String) {
+    ALL("Tất cả"),
+    RECORDED("Đã ghi"),
+    UNRECORDED("Chưa ghi")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerListScreen(
@@ -74,6 +80,7 @@ fun CustomerListScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var isRefreshing by remember { mutableStateOf(false) }
+    var filterType by remember { mutableStateOf(CustomerFilter.ALL) }
 
     LaunchedEffect(roadCode) { viewModel.loadCustomers(roadCode) }
 
@@ -133,7 +140,7 @@ fun CustomerListScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Tìm theo tên hoặc mã KH...") },
+                    placeholder = { Text("Tìm theo tên, mã KH, số seri...") },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -154,17 +161,27 @@ fun CustomerListScreen(
                 is UiState.Error   -> ErrorView(message = state.message, onRetry = viewModel::refresh)
                 is UiState.Success -> {
                     val allCustomers = state.data
-                    val filtered = allCustomers.filter { c ->
-                        searchQuery.isBlank() ||
-                            c.customerName.contains(searchQuery, ignoreCase = true) ||
-                            c.customerCode.contains(searchQuery, ignoreCase = true)
-                    }
-
                     val recorded = allCustomers.count {
                         it.isRecorded || viewModel.isRecorded(it.customerCode)
                     }
                     val total = allCustomers.size
                     val progress = if (total > 0) recorded / total.toFloat() else 0f
+
+                    val filtered = allCustomers.filter { c ->
+                        val isRec = c.isRecorded || viewModel.isRecorded(c.customerCode)
+                        val matchFilter = when (filterType) {
+                            CustomerFilter.ALL -> true
+                            CustomerFilter.RECORDED -> isRec
+                            CustomerFilter.UNRECORDED -> !isRec
+                        }
+                        
+                        val matchSearch = searchQuery.isBlank() ||
+                            c.customerName.contains(searchQuery, ignoreCase = true) ||
+                            c.customerCode.contains(searchQuery, ignoreCase = true) ||
+                            c.contractSerial.contains(searchQuery, ignoreCase = true)
+                            
+                        matchFilter && matchSearch
+                    }
 
                     /* Progress summary */
                     Column(
@@ -198,6 +215,35 @@ fun CustomerListScreen(
                             color = MaterialTheme.colorScheme.secondary,
                             trackColor = MaterialTheme.colorScheme.secondaryContainer
                         )
+                        Spacer(Modifier.size(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CustomerFilter.entries.forEach { filter ->
+                                val isSelected = filterType == filter
+                                val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                                val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                
+                                Surface(
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = containerColor,
+                                    shadowElevation = if (isSelected) 2.dp else 0.dp,
+                                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    onClick = { filterType = filter }
+                                ) {
+                                    Text(
+                                        text = filter.label,
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = contentColor
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     PullToRefreshBox(
@@ -291,6 +337,11 @@ private fun CustomerCard(
                 )
                 Text(
                     text  = customer.customerCode,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text  = "Số seri: ${customer.contractSerial}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

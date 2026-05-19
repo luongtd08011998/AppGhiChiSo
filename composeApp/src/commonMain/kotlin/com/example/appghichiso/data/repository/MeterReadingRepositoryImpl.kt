@@ -3,8 +3,29 @@ package com.example.appghichiso.data.repository
 import com.example.appghichiso.data.api.MeterReadingApiService
 import com.example.appghichiso.data.api.dto.MonthInvoiceReadingDto
 import com.example.appghichiso.domain.repository.MeterReadingRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService) : MeterReadingRepository {
+
+    // Cache để lưu dữ liệu chỉ số của từng tháng, tránh gọi API nhiều lần tải lượng data lớn
+    private val monthlyReadingsCache = mutableMapOf<String, List<MonthInvoiceReadingDto>>()
+    private val cacheMutex = Mutex()
+
+    private suspend fun getReadingsForMonthCached(ym: String): List<MonthInvoiceReadingDto> {
+        cacheMutex.withLock {
+            val cached = monthlyReadingsCache[ym]
+            if (cached != null) return cached
+        }
+        val response = apiService.getReadingsByMonth(ym)
+        cacheMutex.withLock {
+            monthlyReadingsCache[ym] = response.data
+        }
+        return response.data
+    }
 
     override suspend fun submitReading(
         customerCode: String,
@@ -45,8 +66,8 @@ class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService)
         previousIndex: Int
     ): Result<Int?> {
         return try {
-            val response = apiService.getReadingsByMonth(yearMonth)
-            val entry = entryForCustomer(response.data, customerCode, previousIndex)
+            val data = getReadingsForMonthCached(yearMonth)
+            val entry = entryForCustomer(data, customerCode, previousIndex)
             Result.success(entry?.consumptionM3())
         } catch (e: Exception) {
             Result.failure(Exception("Không thể tải dữ liệu tháng trước: ${e.message}"))
@@ -64,20 +85,25 @@ class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService)
             val points = mutableListOf<Pair<String, Int>>()
 
             if (customerCode.isNotBlank()) {
-                for (ym in months) {
-                    try {
-                        val response = apiService.getReadingsByMonth(ym)
-                        val entry = findRowForCustomer(response.data, customerCode)
-                        val c = entry?.consumptionM3()
-                        if (c != null && c >= 0) points.add(ym to c)
-                    } catch (_: Exception) { /* bỏ qua tháng lỗi */ }
+                coroutineScope {
+                    val deferreds = months.map { ym ->
+                        async {
+                            try {
+                                val data = getReadingsForMonthCached(ym)
+                                val entry = findRowForCustomer(data, customerCode)
+                                val c = entry?.consumptionM3()
+                                if (c != null && c >= 0) ym to c else null
+                            } catch (_: Exception) { null }
+                        }
+                    }
+                    deferreds.awaitAll().filterNotNull().forEach { points.add(it) }
                 }
             } else {
                 var seedNewVal = previousIndex
                 for (ym in months.reversed()) {
                     try {
-                        val response = apiService.getReadingsByMonth(ym)
-                        val entry = response.data.firstOrNull { it.newVal != null && it.newVal == seedNewVal }
+                        val data = getReadingsForMonthCached(ym)
+                        val entry = data.firstOrNull { it.newVal != null && it.newVal == seedNewVal }
                         val c = entry?.consumptionM3()
                         if (c != null && c >= 0) {
                             points.add(0, ym to c)
