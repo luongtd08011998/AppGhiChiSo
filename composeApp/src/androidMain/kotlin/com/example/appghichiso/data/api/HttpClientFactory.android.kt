@@ -6,4 +6,3 @@ import io.ktor.client.engine.okhttp.OkHttp
 
 actual fun createHttpClient(config: HttpClientConfig<*>.() -> Unit): HttpClient =
     HttpClient(OkHttp, config)
-

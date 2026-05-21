@@ -9,21 +9,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -46,7 +46,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.appghichiso.di.AppStateHolder
@@ -186,64 +189,151 @@ fun CustomerListScreen(
                     }
 
                     /* Progress summary */
-                    Column(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Tiến độ ghi nước",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Đã ghi $recorded/$total KH",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(Modifier.size(8.dp))
+
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.secondary,
+                                trackColor = MaterialTheme.colorScheme.secondaryContainer,
+                                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                            )
+
+                            Spacer(Modifier.size(16.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CustomerFilter.entries.forEach { filter ->
+                                    val isSelected = filterType == filter
+                                    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary 
+                                                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary 
+                                                       else MaterialTheme.colorScheme.onSurfaceVariant
+                                    
+                                    val filterCount = when (filter) {
+                                        CustomerFilter.ALL -> total
+                                        CustomerFilter.RECORDED -> recorded
+                                        CustomerFilter.UNRECORDED -> total - recorded
+                                    }
+
+                                    Surface(
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = containerColor,
+                                        onClick = { filterType = filter }
+                                    ) {
+                                        Text(
+                                            text = "${filter.label} ($filterCount)",
+                                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                                            textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = contentColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    /* Column Headers matching the mockup */
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shadowElevation = 1.dp
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Column 1: STT Column
                             Text(
-                                "Đã ghi: $recorded / $total khách",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                text = "STT",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFD32F2F) // Red color matching mockup
+                                ),
+                                modifier = Modifier.width(28.dp),
+                                textAlign = TextAlign.Center
                             )
+
+                            Spacer(Modifier.width(4.dp))
+
+                            // Column 2: IDKH Column
                             Text(
-                                "${(progress * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                text = "Mã KH",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFD32F2F)
+                                ),
+                                modifier = Modifier.width(72.dp)
                             )
-                        }
-                        Spacer(Modifier.size(6.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.secondary,
-                            trackColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                        Spacer(Modifier.size(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            CustomerFilter.entries.forEach { filter ->
-                                val isSelected = filterType == filter
-                                val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
-                                val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                                
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = containerColor,
-                                    shadowElevation = if (isSelected) 2.dp else 0.dp,
-                                    border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                                    onClick = { filterType = filter }
-                                ) {
-                                    Text(
-                                        text = filter.label,
-                                        modifier = Modifier.padding(vertical = 8.dp),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = contentColor
+
+                            Spacer(Modifier.width(8.dp))
+
+                            // Column 3: TÊN/SỐ NHÀ Column
+                            Text(
+                                text = "TÊN/ĐỊA CHỈ",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFD32F2F)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Spacer(Modifier.width(8.dp))
+
+                            // Column 4: SỐ SERIAL Column (aligned with numbers)
+                            Row(
+                                modifier = Modifier.width(75.dp),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "SỐ SERIAL",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFD32F2F)
                                     )
-                                }
+                                )
+                                Spacer(Modifier.width(20.dp)) // Aligns to the serial numbers (accounting for chevron)
                             }
                         }
                     }
@@ -257,14 +347,15 @@ fun CustomerListScreen(
                         }
                     ) {
                         LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                                start = 12.dp, end = 12.dp, top = 10.dp, bottom = 24.dp
+                                start = 0.dp, end = 0.dp, top = 0.dp, bottom = 24.dp
                             )
                         ) {
-                            items(filtered, key = { it.customerCode }) { customer ->
+                            itemsIndexed(filtered, key = { _, customer -> customer.customerCode }) { index, customer ->
                                 val isRec = customer.isRecorded || viewModel.isRecorded(customer.customerCode)
                                 CustomerCard(
+                                    index     = index,
                                     customer  = customer,
                                     isRecorded = isRec,
                                     onClick   = {
@@ -283,108 +374,108 @@ fun CustomerListScreen(
 
 @Composable
 private fun CustomerCard(
+    index: Int,
     customer: Customer,
     isRecorded: Boolean,
     onClick: () -> Unit
 ) {
-    val containerColor = if (isRecorded)
+    val cardBackground = if (isRecorded)
         MaterialTheme.colorScheme.secondaryContainer
     else
         MaterialTheme.colorScheme.surface
 
-    Card(
-        modifier  = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape     = RoundedCornerShape(16.dp),
-        colors    = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = cardBackground,
+        onClick = onClick
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            /* Avatar badge */
-            Surface(
-                shape    = CircleShape,
-                color    = if (isRecorded) MaterialTheme.colorScheme.secondary
-                           else MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(44.dp)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (isRecorded) {
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = "Đã ghi",
-                            tint     = Color.White,
-                            modifier = Modifier.size(24.dp)
+                // Column 1: STT
+                Text(
+                    text = (index + 1).toString(),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD32F2F)
+                    ),
+                    modifier = Modifier.width(28.dp),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.width(4.dp))
+
+                // Column 2: IDKH
+                Text(
+                    text = customer.customerCode,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.width(72.dp)
+                )
+
+                Spacer(Modifier.width(8.dp))
+
+                // Column 3: TÊN/SỐ NHÀ
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Name in uppercase bold
+                    Text(
+                        text = customer.customerName.uppercase(),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                    } else {
-                        Icon(
-                            Icons.Filled.Person,
-                            contentDescription = null,
-                            tint     = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    // Address (Displaying entire address: no maxLines restriction)
+                    Text(
+                        text = "Đ/c: ${customer.customerAddress}",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
+                    )
                 }
-            }
 
-            Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(8.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text  = customer.customerName,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text  = customer.customerCode,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text  = "Số seri: ${customer.contractSerial}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text  = customer.customerAddress,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
+                // Column 4: SỐ SERIAL & Chevron
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment     = Alignment.CenterVertically
+                    modifier = Modifier.width(75.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text  = "Chỉ số cũ: ${customer.previousIndex} m³",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isRecorded) MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        text = customer.contractSerial,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     )
-                    if (isRecorded) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.secondary
-                        ) {
-                            Text(
-                                "Đã ghi",
-                                style    = MaterialTheme.typography.labelSmall,
-                                color    = Color.White,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
+
+                    Spacer(Modifier.width(4.dp))
+
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
 
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint     = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                thickness = 1.dp
             )
         }
     }

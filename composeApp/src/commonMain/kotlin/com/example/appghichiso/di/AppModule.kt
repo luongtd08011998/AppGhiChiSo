@@ -79,7 +79,7 @@ private fun networkModule() = module {
             }
             install(Logging) {
                 logger = Logger.SIMPLE
-                level = LogLevel.BODY
+                level = LogLevel.NONE
             }
             install(HttpTimeout) {
                 // Tăng timeout để tránh "Socket timeout has expired" khi server chậm
