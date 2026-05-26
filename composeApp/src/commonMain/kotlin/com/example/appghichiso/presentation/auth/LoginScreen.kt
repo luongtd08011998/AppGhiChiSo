@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import appghichiso.composeapp.generated.resources.Res
 import appghichiso.composeapp.generated.resources.logocty1
+import com.example.appghichiso.getAppVersion
 import com.example.appghichiso.ui.theme.Cyan
 import com.example.appghichiso.ui.theme.OceanBlue
 import com.example.appghichiso.ui.theme.OceanBlueDark
@@ -367,6 +368,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                         }
                     }
                 }
+
+                Text(
+                    text = "Phiên bản: ${getAppVersion()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    textAlign = TextAlign.Center
+                )
 
                 Spacer(Modifier.height(32.dp))
             }

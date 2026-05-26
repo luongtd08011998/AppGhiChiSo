@@ -7,3 +7,5 @@ class AndroidPlatform : Platform {
 }
 
 actual fun getPlatform(): Platform = AndroidPlatform()
+
+actual fun getAppVersion(): String = com.example.appghichiso.BuildConfig.VERSION_NAME
