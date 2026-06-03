@@ -14,3 +14,5 @@ actual fun currentMonth(): Int {
     val components = NSCalendar.currentCalendar.components(NSCalendarUnitMonth, NSDate())
     return components.month.toInt()
 }
+
+actual fun currentTimestamp(): Long = (NSDate().timeIntervalSince1970 * 1000).toLong()

@@ -47,6 +47,16 @@ class CredentialsStorage(private val settings: Settings) {
         return "Basic $encoded"
     }
 
+    /** Lưu ID hóa đơn theo (customerCode, ym) để xem lại biên nhận khi đã thanh toán */
+    fun saveInvoiceId(customerCode: String, ym: String, invoiceId: Long) {
+        settings.putLong("invoice_id_${customerCode}_$ym", invoiceId)
+    }
+
+    /** Lấy ID hóa đơn đã lưu theo (customerCode, ym), hoặc null nếu chưa có */
+    fun getInvoiceId(customerCode: String, ym: String): Long? {
+        return settings.getLongOrNull("invoice_id_${customerCode}_$ym")
+    }
+
     fun clear() {
         settings.remove(KEY_USERNAME)
         settings.remove(KEY_PASSWORD)

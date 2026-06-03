@@ -1,6 +1,7 @@
 package com.example.appghichiso.data.repository
 
 import com.example.appghichiso.data.api.CustomerApiService
+import com.example.appghichiso.data.api.dto.CustomerDto
 import com.example.appghichiso.domain.model.Customer
 import com.example.appghichiso.domain.repository.CustomerRepository
 import com.example.appghichiso.util.currentMonth
@@ -32,10 +33,10 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
                         priceSchemaName = dto.priceSchemaName
                     )
                 }
-            if (response.status.code == "success" || response.data != null) {
+            if (response.status?.code == "success" || response.data != null) {
                 Result.success(customers)
             } else {
-                val msg = response.status.message
+                val msg = response.status?.message ?: "Lỗi từ server (Backend Error)"
                 val isPast = year < currentYear() || (year == currentYear() && month < currentMonth())
                 val friendly = when {
                     msg.contains("error occur", ignoreCase = true) && isPast ->

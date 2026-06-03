@@ -95,6 +95,16 @@ fun MeterReadingScreen(
     val historyState by viewModel.historyState.collectAsStateWithLifecycle()
     val smsNumber by viewModel.smsNumber.collectAsStateWithLifecycle()
     val smsUpdateState by viewModel.smsUpdateState.collectAsStateWithLifecycle()
+    val phoneNumber by viewModel.phoneNumber.collectAsStateWithLifecycle()
+    val phoneUpdateState by viewModel.phoneUpdateState.collectAsStateWithLifecycle()
+    val tvanActionState by viewModel.tvanActionState.collectAsStateWithLifecycle()
+    val currentInvoice by viewModel.currentInvoice.collectAsStateWithLifecycle()
+    val isTvanCreated by viewModel.isTvanCreated.collectAsStateWithLifecycle()
+    val tvanDebugLog by viewModel.tvanDebugLog.collectAsStateWithLifecycle()
+    val isTvanPaid by viewModel.isTvanPaid.collectAsStateWithLifecycle()
+    val tvanPaidInvoiceId by viewModel.tvanPaidInvoiceId.collectAsStateWithLifecycle()
+    val isPaidOnline by viewModel.isPaidOnline.collectAsStateWithLifecycle()
+    val paidOnlineInvoice by viewModel.paidOnlineInvoice.collectAsStateWithLifecycle()
 
     val customerList    = appStateHolder.customerList
     val initialCustomer = appStateHolder.selectedCustomer ?: run { onBack(); return }
@@ -131,6 +141,9 @@ fun MeterReadingScreen(
     var showSuccessDialog  by rememberSaveable(currentIndex) { mutableStateOf(false) }
     var showDetails        by rememberSaveable(currentIndex) { mutableStateOf(false) }
     var showSmsEditDialog  by rememberSaveable(currentIndex) { mutableStateOf(false) }
+    var showPhoneEditDialog by rememberSaveable(currentIndex) { mutableStateOf(false) }
+    var showInvoiceDialog by rememberSaveable(currentIndex) { mutableStateOf(false) }
+    var showReceiptDialog by rememberSaveable(currentIndex) { mutableStateOf(false) }
     val sheetState         = rememberModalBottomSheetState()
 
     LaunchedEffect(currentIndex) {
@@ -140,7 +153,8 @@ fun MeterReadingScreen(
             customerCode = customer.customerCode,
             year = customer.year,
             month = customer.month,
-            previousIndex = customer.previousIndex
+            previousIndex = customer.previousIndex,
+            roadCode = appStateHolder.selectedRoad?.code?.takeIf { it.isNotBlank() } ?: customer.roadCode
         )
     }
 
@@ -306,7 +320,8 @@ fun MeterReadingScreen(
                             year          = customer.year,
                             month         = customer.month,
                             previousIndex = customer.previousIndex,
-                            newIndex      = newIndex
+                            newIndex      = newIndex,
+                            roadCode      = customer.roadCode
                         )
                     }
                 ) { Text("Đồng ý, lưu chỉ số", color = Color(0xFFE65100)) }
@@ -352,7 +367,8 @@ fun MeterReadingScreen(
                             year          = customer.year,
                             month         = customer.month,
                             previousIndex = customer.previousIndex,
-                            newIndex      = newIndex
+                            newIndex      = newIndex,
+                            roadCode      = customer.roadCode
                         )
                     },
                     shape = RoundedCornerShape(12.dp)
@@ -364,8 +380,57 @@ fun MeterReadingScreen(
         )
     }
 
+    /* ── TVAN Effect ── */
+    LaunchedEffect(tvanActionState) {
+        if (tvanActionState is TvanActionState.PublishSuccess) {
+            showSuccessDialog = false
+            showInvoiceDialog = true
+        }
+        if (tvanActionState is TvanActionState.ReceiptLoaded) {
+            showInvoiceDialog = false
+            showReceiptDialog = true
+        }
+        if (tvanActionState is TvanActionState.PaySuccess) {
+            viewModel.loadReceipt(null)
+        }
+    }
+
+    if (showInvoiceDialog && currentInvoice != null) {
+        InvoicePaperDialog(
+            invoice = currentInvoice!!,
+            onDismiss = { 
+                showInvoiceDialog = false 
+                viewModel.resetTvanActionState()
+            },
+            onPayCash = { viewModel.payCash() },
+            onPrint = { /* TODO */ },
+            isLoading = tvanActionState is TvanActionState.Loading
+        )
+    }
+
+    if (showReceiptDialog && tvanActionState is TvanActionState.ReceiptLoaded) {
+        ReceiptDialog(
+            receipt = (tvanActionState as TvanActionState.ReceiptLoaded).receipt,
+            onDismiss = { 
+                showReceiptDialog = false 
+                viewModel.resetTvanActionState()
+            },
+            onPrint = { /* TODO */ }
+        )
+    }
+
+    if (tvanActionState is TvanActionState.Error) {
+        AlertDialog(
+            onDismissRequest = { viewModel.resetTvanActionState() },
+            title = { Text("Lỗi") },
+            text = { Text((tvanActionState as TvanActionState.Error).message) },
+            confirmButton = { TextButton(onClick = { viewModel.resetTvanActionState() }) { Text("Đóng") } }
+        )
+    }
+
     /* ── Success dialog ── */
     if (showSuccessDialog) {
+        val isLoading = tvanActionState is TvanActionState.Loading
         AlertDialog(
             onDismissRequest = {},
             shape = RoundedCornerShape(20.dp),
@@ -377,25 +442,41 @@ fun MeterReadingScreen(
                     color = MaterialTheme.colorScheme.secondary
                 )
             },
-            text = { Text("Chỉ số ${customer.customerName} đã được cập nhật.") },
+            text = { 
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Chỉ số ${customer.customerName} đã được cập nhật.")
+                    if (currentInvoice != null) {
+                        Text(
+                            "Hóa đơn đã sẵn sàng, bạn có muốn tạo hóa đơn TVAN ngay bây giờ?",
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showSuccessDialog = false
-                        viewModel.resetState()
-                        appStateHolder.recordedCustomerCodes.add(customer.customerCode)
-                        
-                        // Cập nhật chỉ số mới vào danh sách gốc để nhớ khi quay lại
-                        val updatedList = appStateHolder.customerList.toMutableList()
-                        updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
-                        appStateHolder.customerList = updatedList
-
-                        if (currentIndex < customerList.size - 1) currentIndex++
-                        else onSubmitSuccess()
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (currentIndex < customerList.size - 1) "Khách tiếp theo →" else "Quay lại danh sách")
+                if (currentInvoice != null) {
+                    Button(
+                        onClick = { viewModel.publishTvan() },
+                        enabled = !isLoading,
+                        shape = RoundedCornerShape(12.dp)
+                    ) { 
+                        if (isLoading) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                        else Text("Tạo hóa đơn TVAN") 
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            showSuccessDialog = false
+                            viewModel.resetState()
+                            appStateHolder.recordedCustomerCodes.add(customer.customerCode)
+                            val updatedList = appStateHolder.customerList.toMutableList()
+                            updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
+                            appStateHolder.customerList = updatedList
+                            if (currentIndex < customerList.size - 1) currentIndex++ else onSubmitSuccess()
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text("Tiếp tục") }
                 }
             },
             dismissButton = {
@@ -403,14 +484,11 @@ fun MeterReadingScreen(
                     showSuccessDialog = false
                     viewModel.resetState()
                     appStateHolder.recordedCustomerCodes.add(customer.customerCode)
-                    
-                    // Cập nhật chỉ số mới vào danh sách gốc
                     val updatedList = appStateHolder.customerList.toMutableList()
                     updatedList[currentIndex] = customer.copy(currentIndex = newIndex!!)
                     appStateHolder.customerList = updatedList
-
-                    onSubmitSuccess()
-                }) { Text("Về danh sách") }
+                    if (currentIndex < customerList.size - 1) currentIndex++ else onSubmitSuccess()
+                }, enabled = !isLoading) { Text("Bỏ qua") }
             }
         )
     }
@@ -544,6 +622,137 @@ fun MeterReadingScreen(
         )
     }
 
+    /* ── Phone Edit dialog ── */
+    if (showPhoneEditDialog) {
+        val initialPhone = phoneNumber ?: customer.customerPhone
+        var editPhoneText by remember(initialPhone) { mutableStateOf(initialPhone) }
+        val isPhoneLoading = phoneUpdateState is SmsUpdateState.Loading
+
+        AlertDialog(
+            onDismissRequest = {
+                if (!isPhoneLoading) {
+                    showPhoneEditDialog = false
+                    viewModel.resetPhoneUpdateState()
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "Cập nhật Điện thoại",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        "${customer.customerName} (${customer.customerCode})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = editPhoneText,
+                        onValueChange = { editPhoneText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Số điện thoại liên hệ", fontWeight = FontWeight.Bold) },
+                        placeholder = { Text("VD: 0912345678") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Phone,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                        textStyle = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isPhoneLoading,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                    )
+                    when (val state = phoneUpdateState) {
+                        is SmsUpdateState.Error -> {
+                            Card(
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Text(
+                                    state.message,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+                        is SmsUpdateState.Success -> {
+                            Card(
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFE8F5E9)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        "Cập nhật thành công!",
+                                        color = Color(0xFF2E7D32),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        else -> {}
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updatePhone(customer.customerCode, editPhoneText.trim())
+                    },
+                    enabled = editPhoneText.isNotBlank() && !isPhoneLoading && phoneUpdateState !is SmsUpdateState.Success,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isPhoneLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text("Cập nhật")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showPhoneEditDialog = false
+                        viewModel.resetPhoneUpdateState()
+                    },
+                    enabled = !isPhoneLoading
+                ) { Text("Đóng") }
+            }
+        )
+    }
+
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -632,9 +841,7 @@ fun MeterReadingScreen(
                                 InfoRow("Số seri đồng hồ",  customer.contractSerial)
                             }
                             InfoRow("Địa chỉ",         customer.customerAddress)
-                            if (customer.customerPhone.isNotBlank()) {
-                                InfoRow("Điện thoại",  customer.customerPhone)
-                            }
+                            InfoRow("Điện thoại",      phoneNumber ?: customer.customerPhone.ifBlank { "—" })
                             InfoRow("SMS", smsNumber ?: "—")
                             InfoRow("Tuyến",           customer.roadName)
                             InfoRow("Loại giá",        customer.priceSchemaName)
@@ -1001,34 +1208,132 @@ fun MeterReadingScreen(
                 }
 
                 /* ── Submit button ── */
-                Button(
-                    onClick  = {
-                        if (isAbnormalConsumption) showWarningDialog = true
-                        else showConfirmDialog = true
-                    },
-                    enabled  = newIndex != null && newIndex >= customer.previousIndex
-                               && submitState !is SubmitState.Loading,
-                    shape    = RoundedCornerShape(16.dp),
-                    colors   = ButtonDefaults.buttonColors(
-                        containerColor = if (isAbnormalConsumption) Color(0xFFE65100)
-                                         else MaterialTheme.colorScheme.primary
-                    ),
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                ) {
-                    if (submitState is SubmitState.Loading) {
-                        CircularProgressIndicator(
-                            modifier    = Modifier.size(22.dp),
-                            strokeWidth = 2.5.dp,
-                            color       = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Text(
-                            if (customer.isRecorded) "Cập nhật chỉ số" else "Lưu chỉ số",
-                            style      = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
+                if (isTvanPaid && tvanPaidInvoiceId != null) {
+                    // Khách hàng đã thanh toán — hiển thị trạng thái + nút xem biên nhận
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { },
+                            enabled = false,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = if (isPaidOnline) {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF1565C0),
+                                    disabledContainerColor = Color(0xFF42A5F5)
+                                )
+                            } else {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF81C784),
+                                    disabledContainerColor = Color(0xFFA5D6A7)
+                                )
+                            },
+                            modifier = Modifier.weight(1f).height(56.dp)
+                        ) {
+                            Text(
+                                if (isPaidOnline) "💳 Đã TT Online" else "✓ Đã Thu Tiền",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                        Button(
+                            onClick = { viewModel.loadReceipt(tvanPaidInvoiceId) },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0)),
+                            modifier = Modifier.weight(1f).height(56.dp)
+                        ) {
+                            Text(
+                                "Xem Biên Nhận",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
+                } else if (isTvanCreated) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { },
+                            enabled = false,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.weight(1f).height(56.dp)
+                        ) {
+                            Text("Đã tạo Hóa Đơn", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        if (currentInvoice != null) {
+                            Button(
+                                onClick = { showInvoiceDialog = true },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                modifier = Modifier.weight(1f).height(56.dp)
+                            ) {
+                                Text("Thu Tiền", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick  = {
+                            if (isAbnormalConsumption) showWarningDialog = true
+                            else showConfirmDialog = true
+                        },
+                        enabled  = newIndex != null && newIndex >= customer.previousIndex
+                                   && submitState !is SubmitState.Loading,
+                        shape    = RoundedCornerShape(16.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            containerColor = if (isAbnormalConsumption) Color(0xFFE65100)
+                                             else MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier.fillMaxWidth().height(56.dp)
+                    ) {
+                        if (submitState is SubmitState.Loading) {
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(22.dp),
+                                strokeWidth = 2.5.dp,
+                                color       = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text(
+                                if (customer.isRecorded) "Cập nhật chỉ số" else "Lưu chỉ số",
+                                style      = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                    }
+                    
+                    if (currentInvoice != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { viewModel.publishTvan() },
+                            enabled = tvanActionState !is TvanActionState.Loading,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                            modifier = Modifier.fillMaxWidth().height(56.dp)
+                        ) {
+                            if (tvanActionState is TvanActionState.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.5.dp,
+                                    color = MaterialTheme.colorScheme.onSecondary
+                                )
+                            } else {
+                                Text(
+                                    "Tạo hóa đơn TVAN",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (tvanDebugLog.isNotBlank()) {
+                    Text(
+                        text = tvanDebugLog,
+                        color = Color.Red,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                 }
 
                 /* ── Customer Info Summary ── */
@@ -1096,6 +1401,75 @@ fun MeterReadingScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 4.dp)
                             )
+                        }
+
+                        /* ── Phone row: số điện thoại + nút sửa ── */
+                        Spacer(Modifier.height(8.dp))
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                Icons.Default.Phone,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                    Column {
+                                        Text(
+                                            "Điện thoại",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            phoneNumber ?: customer.customerPhone.ifBlank { "—" },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                                Surface(
+                                    onClick = {
+                                        viewModel.resetPhoneUpdateState()
+                                        showPhoneEditDialog = true
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Sửa SĐT",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         /* ── SMS row: số điện thoại + nút sửa ── */

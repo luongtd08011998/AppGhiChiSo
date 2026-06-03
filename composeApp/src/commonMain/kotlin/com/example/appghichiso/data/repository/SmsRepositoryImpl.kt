@@ -43,4 +43,26 @@ class SmsRepositoryImpl(private val apiService: SmsApiService) : SmsRepository {
             Result.failure(Exception("Cập nhật SMS thất bại: ${e.message}"))
         }
     }
+
+    override suspend fun updatePhone(customerCode: String, phone: String): Result<String> {
+        return try {
+            val response = apiService.updatePhone(customerCode, phone)
+            val code = response.error?.code?.ifBlank { response.retCode } ?: response.retCode
+            val msg = response.error?.message?.ifBlank { response.retMsg } ?: response.retMsg
+            
+            val isSuccess = code == "ERR-OK" || code.endsWith("OK") || code == "00" // Not sure about Liferay custom codes, assuming ERR-OK is success
+            val isNoChange = code == "ERR-05"
+            
+            when {
+                isSuccess ->
+                    Result.success(msg.ifBlank { "Cập nhật số điện thoại thành công" })
+                isNoChange ->
+                    Result.success("Số điện thoại không thay đổi")
+                else ->
+                    Result.failure(Exception(msg.ifBlank { "Cập nhật thất bại ($code)" }))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Cập nhật số điện thoại thất bại: ${e.message}"))
+        }
+    }
 }

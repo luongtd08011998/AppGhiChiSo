@@ -4,6 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class UpdateIndexApiResponse(
-    val status: ApiStatus
+    val status: ApiStatus? = null
 )
 

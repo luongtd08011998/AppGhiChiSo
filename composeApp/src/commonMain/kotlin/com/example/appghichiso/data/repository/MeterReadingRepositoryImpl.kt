@@ -36,10 +36,10 @@ class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService)
     ): Result<Unit> {
         return try {
             val response = apiService.updateIndex(customerCode, contractCode, year, month, newIndex)
-            if (response.status.code == "success") {
+            if (response.status?.code == "success" || response.status == null) {
                 Result.success(Unit)
             } else {
-                val msg = response.status.message
+                val msg = response.status?.message ?: "Lỗi cập nhật"
                 val friendly = when {
                     msg.contains("request is invalid", ignoreCase = true) ->
                         "Chỉ số đã được chốt, không thể cập nhật lại"

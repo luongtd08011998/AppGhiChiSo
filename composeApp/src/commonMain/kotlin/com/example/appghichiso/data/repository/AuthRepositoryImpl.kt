@@ -20,7 +20,7 @@ class AuthRepositoryImpl(
     ): Result<Unit> {
         return try {
             val response = authApiService.validateUser(username, password)
-            if (response.status.code == "success") {
+            if (response.status?.code == "success" || response.status == null) {
                 // Activate in-memory session — credentials live only while process is alive
                 sessionManager.activate(username, password, month, year)
                 // Persist only for pre-filling the login form on next launch
@@ -28,7 +28,7 @@ class AuthRepositoryImpl(
                 credentialsStorage.saveMonthYear(month, year)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.status.message))
+                Result.failure(Exception(response.status?.message ?: "Lỗi không xác định"))
             }
         } catch (e: Exception) {
             Result.failure(Exception("Đăng nhập thất bại. Vui lòng kiểm tra tài khoản và mật khẩu."))

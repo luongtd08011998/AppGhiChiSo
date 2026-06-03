@@ -11,6 +11,6 @@ data class RoadDto(
 @Serializable
 data class RoadsApiResponse(
     val data: List<RoadDto>,
-    val status: ApiStatus
+    val status: ApiStatus? = null
 )
 

@@ -28,12 +28,13 @@ data class CustomerDto(
     val roadName: String = "",
     val roadOrder: Int = 0,
     val taxFee: Double = 0.0,
-    val year: Int = 0
+    val year: Int = 0,
+    val numOfPages: Int = 1
 )
 
 @Serializable
 data class CustomersApiResponse(
     val data: List<CustomerDto>? = null,
-    val status: ApiStatus
+    val status: ApiStatus? = null
 )
 

@@ -58,24 +58,12 @@ private fun networkModule() = module {
 
     single<HttpClient> {
         val sessionManager = get<SessionManager>()
-        createHttpClient {
+        val client = createHttpClient {
             install(ContentNegotiation) {
                 json(Json {
                     ignoreUnknownKeys = true
                     isLenient = true
                 })
-            }
-            install(Auth) {
-                basic {
-                    credentials {
-                        // Only send credentials when session is active (after login)
-                        if (sessionManager.isActive)
-                            BasicAuthCredentials(sessionManager.email, sessionManager.password)
-                        else null
-                    }
-                    // Pre-emptively send auth header only when session is active
-                    sendWithoutRequest { sessionManager.isActive }
-                }
             }
             install(Logging) {
                 logger = Logger.SIMPLE
@@ -96,6 +84,16 @@ private fun networkModule() = module {
                 }
             }
         }
+
+        client.requestPipeline.intercept(io.ktor.client.request.HttpRequestPipeline.State) {
+            if (sessionManager.isActive) {
+                val authString = "${sessionManager.email}:${sessionManager.password}"
+                val base64 = kotlin.io.encoding.Base64.Default.encode(authString.encodeToByteArray())
+                context.headers.append(io.ktor.http.HttpHeaders.Authorization, "Basic $base64")
+            }
+        }
+
+        client
     }
 
     single { AuthApiService(get()) }
@@ -103,6 +101,7 @@ private fun networkModule() = module {
     single { CustomerApiService(get()) }
     single { MeterReadingApiService(get()) }
     single { SmsApiService(get(), get()) }
+    single { com.example.appghichiso.data.api.TvanApiService(get(), get()) }
 }
 
 private fun repositoryModule() = module {
@@ -111,6 +110,7 @@ private fun repositoryModule() = module {
     single<CustomerRepository> { CustomerRepositoryImpl(get()) }
     single<MeterReadingRepository> { MeterReadingRepositoryImpl(get()) }
     single<SmsRepository> { SmsRepositoryImpl(get()) }
+    single<com.example.appghichiso.domain.repository.TvanRepository> { com.example.appghichiso.data.repository.TvanRepositoryImpl(get()) }
 }
 
 private fun useCaseModule() = module {
@@ -118,13 +118,19 @@ private fun useCaseModule() = module {
     factory { GetRoadsUseCase(get()) }
     factory { GetCustomersUseCase(get()) }
     factory { SubmitMeterReadingUseCase(get(), get()) }
+    factory { com.example.appghichiso.domain.usecase.GetInvoiceStatusUseCase(get()) }
+    factory { com.example.appghichiso.domain.usecase.GetToPublishListUseCase(get()) }
+    factory { com.example.appghichiso.domain.usecase.GetPaidListUseCase(get()) }
+    factory { com.example.appghichiso.domain.usecase.PublishTvanUseCase(get()) }
+    factory { com.example.appghichiso.domain.usecase.PayCashUseCase(get()) }
+    factory { com.example.appghichiso.domain.usecase.GetReceiptUseCase(get()) }
 }
 
 private fun viewModelModule() = module {
     viewModel { AuthViewModel(get(), get(), get(), get<SessionManager>()) }
     viewModel { RouteViewModel(get()) }
     viewModel { CustomerViewModel(get(), get()) }
-    viewModel { MeterReadingViewModel(get(), get(), get()) }
+    viewModel { MeterReadingViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
 }
 
 private fun stateModule() = module {

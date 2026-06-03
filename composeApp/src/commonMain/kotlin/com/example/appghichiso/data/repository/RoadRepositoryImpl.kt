@@ -9,10 +9,10 @@ class RoadRepositoryImpl(private val apiService: RoadApiService) : RoadRepositor
     override suspend fun getRoads(): Result<List<Road>> {
         return try {
             val response = apiService.getRoads()
-            if (response.status.code == "success") {
+            if (response.status?.code == "success" || response.status == null) {
                 Result.success(response.data.map { Road(code = it.code, name = it.name) })
             } else {
-                Result.failure(Exception(response.status.message))
+                Result.failure(Exception(response.status?.message ?: "Lỗi tải tuyến"))
             }
         } catch (e: Exception) {
             Result.failure(Exception("Không thể tải danh sách tuyến: ${e.message}"))
