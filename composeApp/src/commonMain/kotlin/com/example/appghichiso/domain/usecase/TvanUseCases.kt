@@ -36,6 +36,13 @@ class GetToPublishListUseCase(private val tvanRepository: TvanRepository) {
         }
 }
 
+class GetDebtListUseCase(private val tvanRepository: TvanRepository) {
+    suspend operator fun invoke(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> =
+        withContext(Dispatchers.IO) {
+            tvanRepository.getDebtList(yearMonth, roadCode, customerCode)
+        }
+}
+
 class GetPaidListUseCase(private val tvanRepository: TvanRepository) {
     suspend operator fun invoke(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> =
         withContext(Dispatchers.IO) {

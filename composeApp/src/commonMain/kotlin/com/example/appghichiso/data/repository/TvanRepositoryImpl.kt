@@ -6,6 +6,9 @@ import com.example.appghichiso.data.api.dto.PayCashResponse
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.data.api.dto.TvanPublishResponse
 import com.example.appghichiso.domain.repository.TvanRepository
+import com.example.appghichiso.util.Logger
+
+private const val TAG = "TvanRepository"
 
 class TvanRepositoryImpl(
     private val tvanApiService: TvanApiService
@@ -13,27 +16,54 @@ class TvanRepositoryImpl(
     
     override suspend fun getToPublishList(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> {
         return try {
-            val response = tvanApiService.getToPublishList(yearMonth, roadCode, customerCode)
-            Result.success(response)
+            val firstPage = tvanApiService.getToPublishList(yearMonth, roadCode, customerCode, pn = 0)
+            val allInvoices = firstPage.toMutableList()
+            val totalPages = firstPage.firstOrNull()?.numOfPages ?: 1
+            if (totalPages > 1) {
+                for (page in 1 until totalPages) {
+                    val pageData = tvanApiService.getToPublishList(yearMonth, roadCode, customerCode, pn = page)
+                    allInvoices.addAll(pageData)
+                }
+            }
+            Result.success(allInvoices)
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "getToPublishList failed: ym=$yearMonth rc=$roadCode cc=$customerCode" }
             Result.failure(e)
         }
     }
 
     override suspend fun getDebtList(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> {
         return try {
-            val response = tvanApiService.getDebtList(yearMonth, roadCode, customerCode)
-            Result.success(response)
+            val firstPage = tvanApiService.getDebtList(yearMonth, roadCode, customerCode, pn = 0)
+            val allInvoices = firstPage.toMutableList()
+            val totalPages = firstPage.firstOrNull()?.numOfPages ?: 1
+            if (totalPages > 1) {
+                for (page in 1 until totalPages) {
+                    val pageData = tvanApiService.getDebtList(yearMonth, roadCode, customerCode, pn = page)
+                    allInvoices.addAll(pageData)
+                }
+            }
+            Result.success(allInvoices)
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "getDebtList failed: ym=$yearMonth rc=$roadCode cc=$customerCode" }
             Result.failure(e)
         }
     }
 
     override suspend fun getPaidList(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> {
         return try {
-            val response = tvanApiService.getPaidList(yearMonth, roadCode, customerCode)
-            Result.success(response)
+            val firstPage = tvanApiService.getPaidList(yearMonth, roadCode, customerCode, pn = 0)
+            val allInvoices = firstPage.toMutableList()
+            val totalPages = firstPage.firstOrNull()?.numOfPages ?: 1
+            if (totalPages > 1) {
+                for (page in 1 until totalPages) {
+                    val pageData = tvanApiService.getPaidList(yearMonth, roadCode, customerCode, pn = page)
+                    allInvoices.addAll(pageData)
+                }
+            }
+            Result.success(allInvoices)
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "getPaidList failed: ym=$yearMonth rc=$roadCode cc=$customerCode" }
             Result.failure(e)
         }
     }
@@ -47,6 +77,7 @@ class TvanRepositoryImpl(
                 Result.failure(Exception(response.retMsg))
             }
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "publishToTvan failed: ids=$ids" }
             Result.failure(e)
         }
     }
@@ -60,6 +91,7 @@ class TvanRepositoryImpl(
                 Result.failure(Exception(response.retMsg))
             }
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "payCash failed: id=$id" }
             Result.failure(e)
         }
     }
@@ -73,6 +105,7 @@ class TvanRepositoryImpl(
                 Result.failure(Exception("Không tìm thấy biên nhận"))
             }
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "getReceipt failed: id=$id" }
             Result.failure(e)
         }
     }

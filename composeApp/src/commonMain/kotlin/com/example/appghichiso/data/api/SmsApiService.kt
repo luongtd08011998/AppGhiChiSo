@@ -2,6 +2,7 @@ package com.example.appghichiso.data.api
 
 import com.example.appghichiso.data.api.dto.SmsUpdateResponse
 import com.example.appghichiso.session.SessionManager
+import com.example.appghichiso.util.Logger
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -17,6 +18,7 @@ import kotlinx.serialization.json.Json
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
+private const val TAG = "SmsApiService"
 private const val SMS_URL = "http://toctienltd.vn"
 
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -42,7 +44,8 @@ class SmsApiService(
         val body = response.bodyAsText()
         return try {
             json.decodeFromString<SmsUpdateResponse>(body)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Logger.w(TAG, e) { "updateSms: failed to parse response — body=${body.take(200)}" }
             SmsUpdateResponse(retCode = "PARSE_ERROR", retMsg = body.take(200))
         }
     }
@@ -57,7 +60,8 @@ class SmsApiService(
         val body = response.bodyAsText()
         return try {
             json.decodeFromString<SmsUpdateResponse>(body)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Logger.w(TAG, e) { "updatePhone: failed to parse response — body=${body.take(200)}" }
             SmsUpdateResponse(retCode = "PARSE_ERROR", retMsg = body.take(200))
         }
     }

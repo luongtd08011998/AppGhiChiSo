@@ -3,6 +3,9 @@ package com.example.appghichiso.data.repository
 import com.example.appghichiso.data.api.RoadApiService
 import com.example.appghichiso.domain.model.Road
 import com.example.appghichiso.domain.repository.RoadRepository
+import com.example.appghichiso.util.Logger
+
+private const val TAG = "RoadRepository"
 
 class RoadRepositoryImpl(private val apiService: RoadApiService) : RoadRepository {
 
@@ -15,6 +18,7 @@ class RoadRepositoryImpl(private val apiService: RoadApiService) : RoadRepositor
                 Result.failure(Exception(response.status?.message ?: "Lỗi tải tuyến"))
             }
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "getRoads failed" }
             Result.failure(Exception("Không thể tải danh sách tuyến: ${e.message}"))
         }
     }

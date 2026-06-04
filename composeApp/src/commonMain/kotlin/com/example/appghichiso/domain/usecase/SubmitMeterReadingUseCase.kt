@@ -9,9 +9,7 @@ class SubmitMeterReadingUseCase(
 ) {
     suspend operator fun invoke(
         customerCode: String,
-        contractCode: String,
-        year: Int,
-        month: Int,
+        invoiceId: Long,
         newIndex: Int,
         previousIndex: Int
     ): Result<Unit> {
@@ -22,10 +20,12 @@ class SubmitMeterReadingUseCase(
                 )
             )
         }
-        return meterReadingRepository.submitReading(customerCode, contractCode, year, month, newIndex)
-            .also { result ->
-                if (result.isSuccess) appStateHolder.recordedCustomerCodes.add(customerCode)
-            }
+        return meterReadingRepository.submitReading(
+            invoiceId = invoiceId,
+            newIndex = newIndex
+        ).also { result ->
+            if (result.isSuccess) appStateHolder.recordedCustomerCodes.add(customerCode)
+        }
     }
 }
 

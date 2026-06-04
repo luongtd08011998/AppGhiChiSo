@@ -127,7 +127,7 @@ class MeterReadingViewModel(
         _tvanDebugLog.value += "$msg\n"
     }
 
-    fun loadCustomerData(customerCode: String, year: Int, month: Int, previousIndex: Int, roadCode: String = "") {
+    fun loadCustomerData(customerCode: String, year: Int, month: Int, previousIndex: Int, currentIndex: Int, roadCode: String = "", preloadedInvoiceId: Long? = null) {
         _previousMonthConsumption.value = null
         _historyState.value = HistoryState.Loading
         _smsNumber.value = null
@@ -142,7 +142,7 @@ class MeterReadingViewModel(
         _isPaidOnline.value = false
         _paidOnlineInvoice.value = null
 
-        // Lưu lại customerCode và ym để dùng cho cache lookup
+        _tvanDebugLog.value = ""
         loadedCustomerCode = customerCode
         loadedYm = "$year${month.toString().padStart(2, '0')}"
 
@@ -153,7 +153,7 @@ class MeterReadingViewModel(
         val (fromYear, fromMonth) = shiftMonth(year, month, -5)
         val fromYearMonth = "$fromYear${fromMonth.toString().padStart(2, '0')}"
         val toYearMonth = "$year${month.toString().padStart(2, '0')}"
-        
+
         val ym = "$year${month.toString().padStart(2, '0')}"
 
         viewModelScope.launch {
@@ -202,69 +202,126 @@ class MeterReadingViewModel(
                     )
             }
 
+
             if (roadCode.isNotBlank()) {
                 launch {
-                    val systemYm = "${currentYear()}${currentMonth().toString().padStart(2, '0')}"
-                    addTvanLog("Bắt đầu gọi getInvoiceStatusUseCase cho $customerCode với kỳ ghi chỉ số $ym và kỳ hệ thống $systemYm")
-                    
-                    val ymResult = getInvoiceStatusUseCase(ym, roadCode, customerCode)
-                    val systemYmResult = if (systemYm != ym) {
-                        getInvoiceStatusUseCase(systemYm, roadCode, customerCode)
-                    } else {
-                        null
-                    }
-
-                    if (ymResult.isSuccess) {
-                        val (toPublish, debtsYm) = ymResult.getOrThrow()
-                        val debtsSys = if (systemYmResult != null && systemYmResult.isSuccess) {
-                            systemYmResult.getOrThrow().second
+                    val isRecorded = currentIndex > 0
+                    if (!isRecorded) {
+                        addTvanLog("Khách hàng chưa nhập chỉ số -> Bỏ qua kiểm tra TVAN và thanh toán")
+                        if (preloadedInvoiceId != null) {
+                            val invoiceDto = InvoiceDto(
+                                id = preloadedInvoiceId,
+                                custCode = customerCode,
+                                yearMonth = ym,
+                                totalAmount = 0.0,
+                                oldIndex = 0,
+                                newIndex = 0
+                            )
+                            _currentInvoice.value = invoiceDto
+                            addTvanLog("Set currentInvoice.id = $preloadedInvoiceId (Chưa ghi)")
                         } else {
-                            emptyList()
+                            _currentInvoice.value = null
                         }
-                        
-                        val allDebts = debtsSys + debtsYm
-                        
-                        addTvanLog("onSuccess: toPublish size = ${toPublish.size}, debts size = ${allDebts.size}")
-                        val inDebt = allDebts.find { it.custCode == customerCode }
-                        addTvanLog("inDebt = $inDebt")
-                        if (inDebt != null) {
-                            _currentInvoice.value = inDebt
-                            _isTvanCreated.value = true
-                            addTvanLog("Set isTvanCreated = true")
+                        _isTvanCreated.value = false
+                        _isTvanPaid.value = false
+                        _tvanPaidInvoiceId.value = null
+                        _isPaidOnline.value = false
+                        _paidOnlineInvoice.value = null
+                    } else if (preloadedInvoiceId != null) {
+                        // ✅ Fast path: invoice ID đã có sẵn từ get-invoices-by-road
+                        addTvanLog("Invoice ID đã có sẵn từ get-invoices-by-road: $preloadedInvoiceId")
+                        val invoiceDto = InvoiceDto(
+                            id = preloadedInvoiceId,
+                            custCode = customerCode,
+                            yearMonth = ym,
+                            totalAmount = 0.0,
+                            oldIndex = 0,
+                            newIndex = 0
+                        )
+                        _currentInvoice.value = invoiceDto
+                        _isTvanCreated.value = false
+                        addTvanLog("Set currentInvoice.id = $preloadedInvoiceId")
+
+                        // Kiểm tra KH đã thanh toán online chưa
+                        val paidResult = getPaidListUseCase(ym, roadCode, customerCode)
+                        val paidInvoice = paidResult.getOrNull()?.find { it.custCode == customerCode }
+                        if (paidInvoice != null) {
+                            _isPaidOnline.value = true
+                            _paidOnlineInvoice.value = paidInvoice
+                            _isTvanPaid.value = true
+                            _tvanPaidInvoiceId.value = paidInvoice.id
+                            addTvanLog("paid_list: invoice id=${paidInvoice.id} → isPaidOnline = true")
                         } else {
-                            val inToPublish = toPublish.find { it.custCode == customerCode }
-                            addTvanLog("inToPublish = $inToPublish")
-                            if (inToPublish != null) {
-                                _currentInvoice.value = inToPublish
-                                _isTvanCreated.value = false
-                                addTvanLog("Set isTvanCreated = false")
+                            // Kiểm tra local cache
+                            val cachedId = credentialsStorage.getInvoiceId(customerCode, ym)
+                            if (cachedId != null) {
+                                _isTvanPaid.value = true
+                                _tvanPaidInvoiceId.value = cachedId
+                                addTvanLog("Cached invoiceId = $cachedId → isTvanPaid = true")
                             } else {
-                                addTvanLog("Cả inDebt và inToPublish đều null — kiểm tra paid_list và local cache")
-                                // Kiểm tra KH đã thanh toán online chưa
-                                val paidResult = getPaidListUseCase(ym, roadCode, customerCode)
-                                val paidInvoice = paidResult.getOrNull()?.find { it.custCode == customerCode }
-                                if (paidInvoice != null) {
-                                    _isPaidOnline.value = true
-                                    _paidOnlineInvoice.value = paidInvoice
-                                    _isTvanPaid.value = true
-                                    _tvanPaidInvoiceId.value = paidInvoice.id
-                                    addTvanLog("Tìm thấy paid_list invoice id=${paidInvoice.id} → isPaidOnline = true")
-                                } else {
-                                    addTvanLog("paid_list không có → tra cứu local cache")
-                                    val cachedId = credentialsStorage.getInvoiceId(customerCode, ym)
-                                    if (cachedId != null) {
-                                        _isTvanPaid.value = true
-                                        _tvanPaidInvoiceId.value = cachedId
-                                        addTvanLog("Tìm thấy cached invoiceId = $cachedId → isTvanPaid = true")
-                                    } else {
-                                        addTvanLog("Không tìm thấy cached invoiceId")
-                                    }
-                                }
+                                addTvanLog("Chưa thanh toán")
                             }
                         }
                     } else {
-                        val error = ymResult.exceptionOrNull()
-                        addTvanLog("onFailure: ${error?.message}")
+                        // Fallback: không có invoice ID → dùng flow cũ (getInvoiceStatusUseCase)
+                        val systemYm = "${currentYear()}${currentMonth().toString().padStart(2, '0')}"
+                        addTvanLog("Không có preloadedInvoiceId → gọi getInvoiceStatusUseCase")
+
+                        val ymResult = getInvoiceStatusUseCase(ym, roadCode, customerCode)
+                        val systemYmResult = if (systemYm != ym) {
+                            getInvoiceStatusUseCase(systemYm, roadCode, customerCode)
+                        } else {
+                            null
+                        }
+
+                        if (ymResult.isSuccess) {
+                            val (toPublish, debtsYm) = ymResult.getOrThrow()
+                            val debtsSys = if (systemYmResult != null && systemYmResult.isSuccess) {
+                                systemYmResult.getOrThrow().second
+                            } else {
+                                emptyList()
+                            }
+
+                            val allDebts = debtsSys + debtsYm
+
+                            addTvanLog("toPublish size = ${toPublish.size}, debts size = ${allDebts.size}")
+                            val inDebt = allDebts.find { it.custCode == customerCode }
+                            if (inDebt != null) {
+                                _currentInvoice.value = inDebt
+                                _isTvanCreated.value = true
+                                addTvanLog("isTvanCreated = true (debt)")
+                            } else {
+                                val inToPublish = toPublish.find { it.custCode == customerCode }
+                                if (inToPublish != null) {
+                                    _currentInvoice.value = inToPublish
+                                    _isTvanCreated.value = false
+                                    addTvanLog("isTvanCreated = false (toPublish)")
+                                } else {
+                                    addTvanLog("Không có invoice → kiểm tra paid_list + cache")
+                                    val paidResult = getPaidListUseCase(ym, roadCode, customerCode)
+                                    val paidInvoice = paidResult.getOrNull()?.find { it.custCode == customerCode }
+                                    if (paidInvoice != null) {
+                                        _isPaidOnline.value = true
+                                        _paidOnlineInvoice.value = paidInvoice
+                                        _isTvanPaid.value = true
+                                        _tvanPaidInvoiceId.value = paidInvoice.id
+                                        addTvanLog("paid_list: id=${paidInvoice.id} → isPaidOnline = true")
+                                    } else {
+                                        val cachedId = credentialsStorage.getInvoiceId(customerCode, ym)
+                                        if (cachedId != null) {
+                                            _isTvanPaid.value = true
+                                            _tvanPaidInvoiceId.value = cachedId
+                                            addTvanLog("Cached invoiceId = $cachedId → isTvanPaid = true")
+                                        } else {
+                                            addTvanLog("Không tìm thấy invoiceId")
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            val error = ymResult.exceptionOrNull()
+                            addTvanLog("onFailure: ${error?.message}")
+                        }
                     }
                 }
             }
@@ -278,30 +335,45 @@ class MeterReadingViewModel(
         month: Int,
         previousIndex: Int,
         newIndex: Int,
-        roadCode: String
+        invoiceId: Long,
+        publishImmediate: Boolean = false
     ) {
         viewModelScope.launch {
             _submitState.value = SubmitState.Loading
+
             submitMeterReadingUseCase(
                 customerCode = customerCode,
-                contractCode = contractCode,
-                year = year,
-                month = month,
+                invoiceId = invoiceId,
                 newIndex = newIndex,
                 previousIndex = previousIndex
             ).onSuccess {
-                // Sau khi lưu thành công, tải lại danh sách TVAN để lấy Invoice ID
-                val ym = "$year${month.toString().padStart(2, '0')}"
-                if (roadCode.isNotBlank()) {
-                    getToPublishListUseCase(ym, roadCode, customerCode).onSuccess { toPublish ->
-                        val inToPublish = toPublish.find { it.custCode == customerCode }
-                        if (inToPublish != null) {
-                            _currentInvoice.value = inToPublish
-                            _isTvanCreated.value = false
-                        }
-                    }
+                val activeInvoiceId = if (invoiceId > 0) invoiceId else _currentInvoice.value?.id ?: 0L
+                // Sau khi lưu thành công, cập nhật invoice cho TVAN
+                if (_currentInvoice.value == null) {
+                    _currentInvoice.value = InvoiceDto(id = activeInvoiceId, custCode = customerCode,
+                        yearMonth = "$year${month.toString().padStart(2, '0')}",
+                        totalAmount = 0.0, oldIndex = 0, newIndex = 0)
+                    _isTvanCreated.value = false
                 }
-                _submitState.value = SubmitState.Success
+
+                if (publishImmediate && activeInvoiceId > 0L) {
+                    addTvanLog("Tự động phát hành TVAN cho hóa đơn ID: $activeInvoiceId")
+                    publishTvanUseCase(listOf(activeInvoiceId)).fold(
+                        onSuccess = { res ->
+                            addTvanLog("Tự động phát hành TVAN thành công: ${res.retMsg}")
+                            _tvanActionState.value = TvanActionState.PublishSuccess(res.result, res.retMsg)
+                            _isTvanCreated.value = true
+                            _submitState.value = SubmitState.Success
+                        },
+                        onFailure = { err ->
+                            addTvanLog("Tự động phát hành TVAN thất bại: ${err.message}")
+                            _tvanActionState.value = TvanActionState.Error(err.message ?: "Lỗi tự động tạo hóa đơn TVAN")
+                            _submitState.value = SubmitState.Success // Vẫn giữ Success cho ghi chỉ số
+                        }
+                    )
+                } else {
+                    _submitState.value = SubmitState.Success
+                }
             }.onFailure {
                 val msg = it.message ?: ""
                 val friendly = if (msg.contains("invali", ignoreCase = true))

@@ -1,73 +1,52 @@
 package com.example.appghichiso.presentation.customer
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.appghichiso.di.AppStateHolder
 import com.example.appghichiso.domain.model.Customer
-import com.example.appghichiso.presentation.common.ErrorView
-import com.example.appghichiso.presentation.common.LoadingIndicator
+import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.presentation.common.UiState
+import com.example.appghichiso.presentation.reading.ReceiptDialog
+import com.example.appghichiso.presentation.reading.InvoicePaperDialog
+import com.example.appghichiso.presentation.reading.TvanActionState
 import com.example.appghichiso.ui.theme.Cyan
 import com.example.appghichiso.ui.theme.OceanBlue
 import com.example.appghichiso.ui.theme.OceanBlueDark
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-
-enum class CustomerFilter(val label: String) {
-    ALL("Tất cả"),
-    RECORDED("Đã ghi"),
-    UNRECORDED("Chưa ghi")
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,17 +58,51 @@ fun CustomerListScreen(
 ) {
     val viewModel = koinViewModel<CustomerViewModel>()
     val appStateHolder = koinInject<AppStateHolder>()
+
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val toPublishState by viewModel.toPublishState.collectAsStateWithLifecycle()
+    val debtState by viewModel.debtState.collectAsStateWithLifecycle()
+    val paidState by viewModel.paidState.collectAsStateWithLifecycle()
+    val activeTab by viewModel.activeTab.collectAsStateWithLifecycle()
+    val tvanActionState by viewModel.tvanActionState.collectAsStateWithLifecycle()
 
     var searchQuery by remember { mutableStateOf("") }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var filterType by remember { mutableStateOf(CustomerFilter.ALL) }
+    val selectedInvoiceIds = remember { mutableStateListOf<Long>() }
 
-    LaunchedEffect(roadCode) { viewModel.loadCustomers(roadCode) }
+    var invoiceToPay by remember { mutableStateOf<InvoiceDto?>(null) }
+    var showReceiptDialog by remember { mutableStateOf(false) }
+    var showTvanErrorDialog by remember { mutableStateOf<String?>(null) }
+    var showPublishSuccessDialog by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(roadCode) {
+        viewModel.loadCustomers(roadCode)
+    }
 
     LaunchedEffect(uiState) {
         if (uiState is UiState.Success) {
             appStateHolder.customerList = (uiState as UiState.Success<List<Customer>>).data
+        }
+    }
+
+    LaunchedEffect(tvanActionState) {
+        when (val state = tvanActionState) {
+            is TvanActionState.PublishSuccess -> {
+                showPublishSuccessDialog = "Đã phát hành thành công ${state.count} hóa đơn sang TVAN!"
+                selectedInvoiceIds.clear()
+                viewModel.resetTvanActionState()
+            }
+            is TvanActionState.PaySuccess -> {
+                invoiceToPay = null
+                viewModel.resetTvanActionState()
+            }
+            is TvanActionState.ReceiptLoaded -> {
+                showReceiptDialog = true
+            }
+            is TvanActionState.Error -> {
+                showTvanErrorDialog = state.message
+                viewModel.resetTvanActionState()
+            }
+            else -> {}
         }
     }
 
@@ -128,6 +141,32 @@ fun CustomerListScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
         ) {
+            /* ── Tabs Row ── */
+            TabRow(
+                selectedTabIndex = activeTab,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                val tabTitles = listOf("Ghi chỉ số", "Chưa phát hành", "Nợ/Thu tiền", "Đã thanh toán")
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = activeTab == index,
+                        onClick = {
+                            searchQuery = ""
+                            viewModel.setActiveTab(index)
+                        },
+                        text = {
+                            Text(
+                                title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = if (activeTab == index) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    )
+                }
+            }
+
             /* ── Gradient search banner ── */
             Box(
                 modifier = Modifier
@@ -143,7 +182,7 @@ fun CustomerListScreen(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Tìm theo tên, mã KH, số seri...") },
+                    placeholder = { Text("Tìm theo tên, mã KH...") },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -161,321 +200,88 @@ fun CustomerListScreen(
                 )
             }
 
-            when (val state = uiState) {
-                is UiState.Loading -> LoadingIndicator()
-                is UiState.Error   -> ErrorView(message = state.message, onRetry = viewModel::refresh)
-                is UiState.Success -> {
-                    val allCustomers = state.data
-                    val recorded = allCustomers.count {
-                        it.isRecorded || viewModel.isRecorded(it.customerCode)
+            /* ── Tab Contents ── */
+            Box(modifier = Modifier.weight(1f)) {
+                when (activeTab) {
+                    0 -> {
+                        CustomerTabContent(
+                            state = uiState,
+                            searchQuery = searchQuery,
+                            isRecorded = { code -> viewModel.isRecorded(code) },
+                            onCustomerSelected = { customer ->
+                                appStateHolder.selectedCustomer = customer
+                                onCustomerSelected(customer)
+                            },
+                            onRefresh = { viewModel.refresh() }
+                        )
                     }
-                    val total = allCustomers.size
-                    val progress = if (total > 0) recorded / total.toFloat() else 0f
-
-                    val filtered = allCustomers.filter { c ->
-                        val isRec = c.isRecorded || viewModel.isRecorded(c.customerCode)
-                        val matchFilter = when (filterType) {
-                            CustomerFilter.ALL -> true
-                            CustomerFilter.RECORDED -> isRec
-                            CustomerFilter.UNRECORDED -> !isRec
-                        }
-                        
-                        val matchSearch = searchQuery.isBlank() ||
-                            c.customerName.contains(searchQuery, ignoreCase = true) ||
-                            c.customerCode.contains(searchQuery, ignoreCase = true) ||
-                            c.contractSerial.contains(searchQuery, ignoreCase = true)
-                            
-                        matchFilter && matchSearch
+                    1 -> {
+                        ToPublishTabContent(
+                            state = toPublishState,
+                            searchQuery = searchQuery,
+                            selectedInvoiceIds = selectedInvoiceIds,
+                            isPublishing = tvanActionState is TvanActionState.Loading,
+                            onPublishClick = { ids -> viewModel.publishSelectedTvan(ids) },
+                            onRefresh = { viewModel.refresh() }
+                        )
                     }
-
-                    /* Progress summary */
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Tiến độ ghi nước",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    "Đã ghi $recorded/$total KH",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Spacer(Modifier.size(8.dp))
-
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.secondary,
-                                trackColor = MaterialTheme.colorScheme.secondaryContainer,
-                                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-                            )
-
-                            Spacer(Modifier.size(16.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                CustomerFilter.entries.forEach { filter ->
-                                    val isSelected = filterType == filter
-                                    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary 
-                                                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary 
-                                                       else MaterialTheme.colorScheme.onSurfaceVariant
-                                    
-                                    val filterCount = when (filter) {
-                                        CustomerFilter.ALL -> total
-                                        CustomerFilter.RECORDED -> recorded
-                                        CustomerFilter.UNRECORDED -> total - recorded
-                                    }
-
-                                    Surface(
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = containerColor,
-                                        onClick = { filterType = filter }
-                                    ) {
-                                        Text(
-                                            text = "${filter.label} ($filterCount)",
-                                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                                            textAlign = TextAlign.Center,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = contentColor,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                    2 -> {
+                        DebtTabContent(
+                            state = debtState,
+                            searchQuery = searchQuery,
+                            onPayClick = { inv -> invoiceToPay = inv },
+                            onRefresh = { viewModel.refresh() }
+                        )
                     }
-
-                    /* Column Headers matching the mockup */
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shadowElevation = 1.dp
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp, horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Column 1: STT Column
-                            Text(
-                                text = "STT",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFD32F2F) // Red color matching mockup
-                                ),
-                                modifier = Modifier.width(28.dp),
-                                textAlign = TextAlign.Center
-                            )
-
-                            Spacer(Modifier.width(4.dp))
-
-                            // Column 2: IDKH Column
-                            Text(
-                                text = "Mã KH",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFD32F2F)
-                                ),
-                                modifier = Modifier.width(72.dp)
-                            )
-
-                            Spacer(Modifier.width(8.dp))
-
-                            // Column 3: TÊN/SỐ NHÀ Column
-                            Text(
-                                text = "TÊN/ĐỊA CHỈ",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFD32F2F)
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            Spacer(Modifier.width(8.dp))
-
-                            // Column 4: SỐ SERIAL Column (aligned with numbers)
-                            Row(
-                                modifier = Modifier.width(75.dp),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "SỐ SERIAL",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFD32F2F)
-                                    )
-                                )
-                                Spacer(Modifier.width(20.dp)) // Aligns to the serial numbers (accounting for chevron)
-                            }
-                        }
-                    }
-
-                    PullToRefreshBox(
-                        isRefreshing = isRefreshing,
-                        onRefresh = {
-                            isRefreshing = true
-                            viewModel.refresh()
-                            isRefreshing = false
-                        }
-                    ) {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(0.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                                start = 0.dp, end = 0.dp, top = 0.dp, bottom = 24.dp
-                            )
-                        ) {
-                            itemsIndexed(filtered, key = { _, customer -> customer.customerCode }) { index, customer ->
-                                val isRec = customer.isRecorded || viewModel.isRecorded(customer.customerCode)
-                                CustomerCard(
-                                    index     = index,
-                                    customer  = customer,
-                                    isRecorded = isRec,
-                                    onClick   = {
-                                        appStateHolder.selectedCustomer = customer
-                                        onCustomerSelected(customer)
-                                    }
-                                )
-                            }
-                        }
+                    3 -> {
+                        PaidTabContent(
+                            state = paidState,
+                            searchQuery = searchQuery,
+                            onReceiptClick = { inv -> viewModel.loadReceipt(inv.id) },
+                            onRefresh = { viewModel.refresh() }
+                        )
                     }
                 }
             }
         }
-    }
-}
 
-@Composable
-private fun CustomerCard(
-    index: Int,
-    customer: Customer,
-    isRecorded: Boolean,
-    onClick: () -> Unit
-) {
-    val cardBackground = if (isRecorded)
-        MaterialTheme.colorScheme.secondaryContainer
-    else
-        MaterialTheme.colorScheme.surface
+        /* ── Dialog Giấy Báo Tiền Nước / Thu Tiền ── */
+        if (invoiceToPay != null) {
+            val isLoading = tvanActionState is TvanActionState.Loading
+            InvoicePaperDialog(
+                invoice = invoiceToPay!!,
+                onDismiss = { if (!isLoading) invoiceToPay = null },
+                onPayCash = { viewModel.payCashForInvoice(invoiceToPay!!.id) },
+                onPrint = { /* Dummy */ },
+                isLoading = isLoading
+            )
+        }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = cardBackground,
-        onClick = onClick
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Column 1: STT
-                Text(
-                    text = (index + 1).toString(),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFD32F2F)
-                    ),
-                    modifier = Modifier.width(28.dp),
-                    textAlign = TextAlign.Center
-                )
+        /* ── Dialog Biên Nhận ── */
+        if (showReceiptDialog && tvanActionState is TvanActionState.ReceiptLoaded) {
+            ReceiptDialog(
+                receipt = (tvanActionState as TvanActionState.ReceiptLoaded).receipt,
+                onDismiss = {
+                    showReceiptDialog = false
+                    viewModel.resetTvanActionState()
+                },
+                onPrint = { /* Dummy */ }
+            )
+        }
 
-                Spacer(Modifier.width(4.dp))
+        /* ── Dialog Lỗi TVAN ── */
+        if (showTvanErrorDialog != null) {
+            TvanErrorDialog(
+                message = showTvanErrorDialog!!,
+                onDismiss = { showTvanErrorDialog = null }
+            )
+        }
 
-                // Column 2: IDKH
-                Text(
-                    text = customer.customerCode,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.onSurface
-                    ),
-                    modifier = Modifier.width(72.dp)
-                )
-
-                Spacer(Modifier.width(8.dp))
-
-                // Column 3: TÊN/SỐ NHÀ
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    // Name in uppercase bold
-                    Text(
-                        text = customer.customerName.uppercase(),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-
-                    Spacer(Modifier.height(4.dp))
-
-                    // Address (Displaying entire address: no maxLines restriction)
-                    Text(
-                        text = "Đ/c: ${customer.customerAddress}",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                // Column 4: SỐ SERIAL & Chevron
-                Row(
-                    modifier = Modifier.width(75.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = customer.contractSerial,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontStyle = FontStyle.Italic,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-
-                    Spacer(Modifier.width(4.dp))
-
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                thickness = 1.dp
+        /* ── Dialog Thành Công Phát Hành TVAN ── */
+        if (showPublishSuccessDialog != null) {
+            PublishSuccessDialog(
+                message = showPublishSuccessDialog!!,
+                onDismiss = { showPublishSuccessDialog = null }
             )
         }
     }

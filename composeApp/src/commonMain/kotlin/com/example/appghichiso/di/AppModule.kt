@@ -21,6 +21,12 @@ import com.example.appghichiso.domain.usecase.GetCustomersUseCase
 import com.example.appghichiso.domain.usecase.GetRoadsUseCase
 import com.example.appghichiso.domain.usecase.LoginUseCase
 import com.example.appghichiso.domain.usecase.SubmitMeterReadingUseCase
+import com.example.appghichiso.domain.usecase.GetToPublishListUseCase
+import com.example.appghichiso.domain.usecase.GetDebtListUseCase
+import com.example.appghichiso.domain.usecase.GetPaidListUseCase
+import com.example.appghichiso.domain.usecase.PublishTvanUseCase
+import com.example.appghichiso.domain.usecase.PayCashUseCase
+import com.example.appghichiso.domain.usecase.GetReceiptUseCase
 import com.example.appghichiso.presentation.auth.AuthViewModel
 import com.example.appghichiso.presentation.customer.CustomerViewModel
 import com.example.appghichiso.presentation.reading.MeterReadingViewModel
@@ -119,17 +125,18 @@ private fun useCaseModule() = module {
     factory { GetCustomersUseCase(get()) }
     factory { SubmitMeterReadingUseCase(get(), get()) }
     factory { com.example.appghichiso.domain.usecase.GetInvoiceStatusUseCase(get()) }
-    factory { com.example.appghichiso.domain.usecase.GetToPublishListUseCase(get()) }
-    factory { com.example.appghichiso.domain.usecase.GetPaidListUseCase(get()) }
-    factory { com.example.appghichiso.domain.usecase.PublishTvanUseCase(get()) }
-    factory { com.example.appghichiso.domain.usecase.PayCashUseCase(get()) }
-    factory { com.example.appghichiso.domain.usecase.GetReceiptUseCase(get()) }
+    factory { GetToPublishListUseCase(get()) }
+    factory { GetDebtListUseCase(get()) }
+    factory { GetPaidListUseCase(get()) }
+    factory { PublishTvanUseCase(get()) }
+    factory { PayCashUseCase(get()) }
+    factory { GetReceiptUseCase(get()) }
 }
 
 private fun viewModelModule() = module {
     viewModel { AuthViewModel(get(), get(), get(), get<SessionManager>()) }
     viewModel { RouteViewModel(get()) }
-    viewModel { CustomerViewModel(get(), get()) }
+    viewModel { CustomerViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { MeterReadingViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
 }
 

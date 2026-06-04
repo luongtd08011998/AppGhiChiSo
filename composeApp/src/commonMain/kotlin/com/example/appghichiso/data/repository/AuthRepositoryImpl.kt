@@ -4,6 +4,9 @@ import com.example.appghichiso.data.api.AuthApiService
 import com.example.appghichiso.data.local.CredentialsStorage
 import com.example.appghichiso.domain.repository.AuthRepository
 import com.example.appghichiso.session.SessionManager
+import com.example.appghichiso.util.Logger
+
+private const val TAG = "AuthRepository"
 
 class AuthRepositoryImpl(
     private val credentialsStorage: CredentialsStorage,
@@ -31,6 +34,7 @@ class AuthRepositoryImpl(
                 Result.failure(Exception(response.status?.message ?: "Lỗi không xác định"))
             }
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "login failed for user=$username" }
             Result.failure(Exception("Đăng nhập thất bại. Vui lòng kiểm tra tài khoản và mật khẩu."))
         }
     }

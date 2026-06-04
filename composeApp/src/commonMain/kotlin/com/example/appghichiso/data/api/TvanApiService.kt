@@ -5,6 +5,8 @@ import com.example.appghichiso.data.api.dto.PayCashResponse
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.data.api.dto.TvanPublishResponse
 import com.example.appghichiso.session.SessionManager
+import com.example.appghichiso.util.Logger
+import com.example.appghichiso.util.currentTimestamp
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -18,8 +20,8 @@ import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
-import com.example.appghichiso.util.currentTimestamp
 
+private const val TAG = "TvanApiService"
 private const val TVAN_URL = "http://toctienltd.vn/cm-portlet/api"
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -34,9 +36,9 @@ class TvanApiService(
         return Base64.encode("$username:${sessionManager.password}".encodeToByteArray())
     }
 
-    suspend fun getToPublishList(ym: String, rc: String, cc: String): List<InvoiceDto> {
+    suspend fun getToPublishList(ym: String, rc: String, cc: String, pn: Int = 0): List<InvoiceDto> {
         val timestamp = currentTimestamp()
-        val response = client.get("$TVAN_URL/to_publish_list?ym=$ym&rc=$rc&cc=$cc&pn=0&t=$timestamp") {
+        val response = client.get("$TVAN_URL/to_publish_list?ym=$ym&rc=$rc&cc=$cc&pn=$pn&t=$timestamp") {
             header("Authorization", "Basic $credentials")
             header("Cache-Control", "no-cache, no-store, must-revalidate")
             header("Pragma", "no-cache")
@@ -46,9 +48,9 @@ class TvanApiService(
         }
     }
 
-    suspend fun getDebtList(ym: String, rc: String, cc: String): List<InvoiceDto> {
+    suspend fun getDebtList(ym: String, rc: String, cc: String, pn: Int = 0): List<InvoiceDto> {
         val timestamp = currentTimestamp()
-        val response = client.get("$TVAN_URL/debt_list?ym=$ym&rc=$rc&cc=$cc&pn=0&t=$timestamp") {
+        val response = client.get("$TVAN_URL/debt_list?ym=$ym&rc=$rc&cc=$cc&pn=$pn&t=$timestamp") {
             header("Authorization", "Basic $credentials")
             header("Cache-Control", "no-cache, no-store, must-revalidate")
             header("Pragma", "no-cache")
@@ -68,6 +70,7 @@ class TvanApiService(
         return try {
             json.decodeFromString<TvanPublishResponse>(response.bodyAsText())
         } catch (e: Exception) {
+            Logger.w(TAG, e) { "publishToTvan: failed to parse response" }
             TvanPublishResponse(retCode = "ERR", retMsg = "Parsing Error", result = "")
         }
     }
@@ -82,13 +85,14 @@ class TvanApiService(
         return try {
             json.decodeFromString<PayCashResponse>(response.bodyAsText())
         } catch (e: Exception) {
+            Logger.w(TAG, e) { "payCash: failed to parse response" }
             PayCashResponse(retCode = "ERR", retMsg = "Parsing Error", result = "")
         }
     }
 
-    suspend fun getPaidList(ym: String, rc: String, cc: String): List<InvoiceDto> {
+    suspend fun getPaidList(ym: String, rc: String, cc: String, pn: Int = 0): List<InvoiceDto> {
         val timestamp = currentTimestamp()
-        val response = client.get("$TVAN_URL/paid_list?ym=$ym&rc=$rc&cc=$cc&t=$timestamp") {
+        val response = client.get("$TVAN_URL/paid_list?ym=$ym&rc=$rc&cc=$cc&pn=$pn&t=$timestamp") {
             header("Authorization", "Basic $credentials")
             header("Cache-Control", "no-cache, no-store, must-revalidate")
             header("Pragma", "no-cache")
@@ -117,6 +121,7 @@ class TvanApiService(
             return try {
                 json.decodeFromString<ReceiptDto>(trimmed)
             } catch (e: Exception) {
+                Logger.w(TAG, e) { "parseReceipt: failed to parse JSON object" }
                 null
             }
         }

@@ -15,9 +15,12 @@ data class Customer(
     val roadCode: String,
     val roadName: String,
     val roadOrder: Int,
-    val priceSchemaName: String
+    val priceSchemaName: String,
+    val invoiceId: Long? = null
 ) {
     /** true nếu đã ghi chỉ số tháng này (từ server hoặc phiên làm việc hiện tại) */
     val isRecorded: Boolean get() = currentIndex > 0
+    /** true nếu có hóa đơn (invoice ID từ get-invoices-by-road) */
+    val hasInvoice: Boolean get() = invoiceId != null
 }
 

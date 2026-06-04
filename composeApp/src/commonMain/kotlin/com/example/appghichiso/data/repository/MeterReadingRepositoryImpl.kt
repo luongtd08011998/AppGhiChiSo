@@ -3,11 +3,14 @@ package com.example.appghichiso.data.repository
 import com.example.appghichiso.data.api.MeterReadingApiService
 import com.example.appghichiso.data.api.dto.MonthInvoiceReadingDto
 import com.example.appghichiso.domain.repository.MeterReadingRepository
+import com.example.appghichiso.util.Logger
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
+private const val TAG = "MeterReadingRepository"
 
 class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService) : MeterReadingRepository {
 
@@ -28,14 +31,14 @@ class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService)
     }
 
     override suspend fun submitReading(
-        customerCode: String,
-        contractCode: String,
-        year: Int,
-        month: Int,
+        invoiceId: Long,
         newIndex: Int
     ): Result<Unit> {
         return try {
-            val response = apiService.updateIndex(customerCode, contractCode, year, month, newIndex)
+            val response = apiService.updateInvoice(
+                id = invoiceId,
+                newIndex = newIndex
+            )
             if (response.status?.code == "success" || response.status == null) {
                 Result.success(Unit)
             } else {
@@ -93,7 +96,10 @@ class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService)
                                 val entry = findRowForCustomer(data, customerCode)
                                 val c = entry?.consumptionM3()
                                 if (c != null && c >= 0) ym to c else null
-                            } catch (_: Exception) { null }
+                            } catch (e: Exception) {
+                                Logger.w(TAG, e) { "getConsumptionHistory: failed fetching month=$ym for customer=$customerCode" }
+                                null
+                            }
                         }
                     }
                     deferreds.awaitAll().filterNotNull().forEach { points.add(it) }
@@ -109,7 +115,9 @@ class MeterReadingRepositoryImpl(private val apiService: MeterReadingApiService)
                             points.add(0, ym to c)
                             seedNewVal = entry.oldVal ?: break
                         }
-                    } catch (_: Exception) { /* bỏ qua tháng lỗi */ }
+                    } catch (e: Exception) {
+                        Logger.w(TAG, e) { "getConsumptionHistory: failed fetching month=$ym (seed fallback)" }
+                    }
                 }
             }
 

@@ -2,6 +2,9 @@ package com.example.appghichiso.data.repository
 
 import com.example.appghichiso.data.api.SmsApiService
 import com.example.appghichiso.domain.repository.SmsRepository
+import com.example.appghichiso.util.Logger
+
+private const val TAG = "SmsRepository"
 
 class SmsRepositoryImpl(private val apiService: SmsApiService) : SmsRepository {
 
@@ -10,6 +13,7 @@ class SmsRepositoryImpl(private val apiService: SmsApiService) : SmsRepository {
             val sms = apiService.getSms(customerCode)
             Result.success(sms)
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "getSms failed: customerCode=$customerCode" }
             Result.failure(Exception("Không thể tải số SMS: ${e.message}"))
         }
     }
@@ -40,6 +44,7 @@ class SmsRepositoryImpl(private val apiService: SmsApiService) : SmsRepository {
                     Result.failure(Exception(msg.ifBlank { "Cập nhật SMS thất bại ($code)" }))
             }
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "updateSms failed: customerCode=$customerCode" }
             Result.failure(Exception("Cập nhật SMS thất bại: ${e.message}"))
         }
     }
@@ -62,6 +67,7 @@ class SmsRepositoryImpl(private val apiService: SmsApiService) : SmsRepository {
                     Result.failure(Exception(msg.ifBlank { "Cập nhật thất bại ($code)" }))
             }
         } catch (e: Exception) {
+            Logger.e(TAG, e) { "updatePhone failed: customerCode=$customerCode" }
             Result.failure(Exception("Cập nhật số điện thoại thất bại: ${e.message}"))
         }
     }
