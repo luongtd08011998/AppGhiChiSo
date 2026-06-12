@@ -80,22 +80,37 @@ class CustomerViewModel(
     // ── Pagination States ──
     private var toPublishPage = 0
     private var maxToPublishPage = 1
-    private var isToPublishLoadingMore = false
+    private val _isToPublishLoadingMore = MutableStateFlow(false)
+    val isToPublishLoadingMore: StateFlow<Boolean> = _isToPublishLoadingMore.asStateFlow()
     private val currentToPublishList = mutableListOf<InvoiceDto>()
+
+    private var customerPage = 0
+    private var maxCustomerPage = 1
+    private val _isCustomerLoadingMore = MutableStateFlow(false)
+    val isCustomerLoadingMore: StateFlow<Boolean> = _isCustomerLoadingMore.asStateFlow()
+    private val currentCustomerList = mutableListOf<Customer>()
 
     private var debtPageYm = 0
     private var maxDebtPageYm = 1
     private var debtPageSys = 0
     private var maxDebtPageSys = 1
-    private var isDebtLoadingMore = false
+    private val _isDebtLoadingMore = MutableStateFlow(false)
+    val isDebtLoadingMore: StateFlow<Boolean> = _isDebtLoadingMore.asStateFlow()
     private val currentDebtList = mutableListOf<InvoiceDto>()
 
     private var paidPageYm = 0
     private var maxPaidPageYm = 1
     private var paidPageSys = 0
     private var maxPaidPageSys = 1
-    private var isPaidLoadingMore = false
+    private val _isPaidLoadingMore = MutableStateFlow(false)
+    val isPaidLoadingMore: StateFlow<Boolean> = _isPaidLoadingMore.asStateFlow()
     private val currentPaidList = mutableListOf<InvoiceDto>()
+
+    private var customersByRoadPage = 0
+    private var maxCustomersByRoadPage = 1
+    private val _isCustomersByRoadLoadingMore = MutableStateFlow(false)
+    val isCustomersByRoadLoadingMore: StateFlow<Boolean> = _isCustomersByRoadLoadingMore.asStateFlow()
+    private val currentCustomersByRoadList = mutableListOf<CustomerByRoad>()
 
     val currentYear: Int get() = appStateHolder.billingYear.takeIf { it > 0 } ?: currentYear()
     val currentMonth: Int get() = appStateHolder.billingMonth.takeIf { it > 0 } ?: currentMonth()
@@ -123,10 +138,16 @@ class CustomerViewModel(
     }
 
     private fun loadCustomersByRoad() {
+        customersByRoadPage = 0
+        currentCustomersByRoadList.clear()
         viewModelScope.launch {
             _customersByRoadState.value = UiState.Loading
-            getCustomersByRoadUseCase(currentRoadCode)
-                .onSuccess { _customersByRoadState.value = UiState.Success(it) }
+            getCustomersByRoadUseCase(currentRoadCode, 0)
+                .onSuccess {
+                    maxCustomersByRoadPage = it.firstOrNull()?.numOfPages ?: 1
+                    currentCustomersByRoadList.addAll(it)
+                    _customersByRoadState.value = UiState.Success(currentCustomersByRoadList.toList())
+                }
                 .onFailure { _customersByRoadState.value = UiState.Error(it.message ?: "Lỗi tải danh sách khách hàng") }
         }
     }
@@ -138,9 +159,15 @@ class CustomerViewModel(
             when (tab) {
                 0 -> {
                     // Ghi Chỉ Số
+                    customerPage = 0
+                    currentCustomerList.clear()
                     _uiState.value = UiState.Loading
-                    getCustomersUseCase(currentRoadCode, currentYear, currentMonth)
-                        .onSuccess { _uiState.value = UiState.Success(it) }
+                    getCustomersUseCase(currentRoadCode, currentYear, currentMonth, 0)
+                        .onSuccess {
+                            maxCustomerPage = it.firstOrNull()?.numOfPages ?: 1
+                            currentCustomerList.addAll(it)
+                            _uiState.value = UiState.Success(currentCustomerList.toList())
+                        }
                         .onFailure { _uiState.value = UiState.Error(it.message ?: "Lỗi tải danh sách khách hàng") }
                 }
                 1 -> {
@@ -217,9 +244,43 @@ class CustomerViewModel(
     }
 
     // ── Pagination Logic ──
+    fun loadMoreCustomers() {
+        if (_isCustomerLoadingMore.value || customerPage >= maxCustomerPage - 1) return
+        _isCustomerLoadingMore.value = true
+        customerPage++
+        viewModelScope.launch {
+            getCustomersUseCase(currentRoadCode, currentYear, currentMonth, customerPage)
+                .onSuccess {
+                    currentCustomerList.addAll(it)
+                    _uiState.value = UiState.Success(currentCustomerList.toList())
+                }
+                .onFailure {
+                    customerPage--
+                }
+            _isCustomerLoadingMore.value = false
+        }
+    }
+
+    fun loadMoreCustomersByRoad() {
+        if (_isCustomersByRoadLoadingMore.value || customersByRoadPage >= maxCustomersByRoadPage - 1) return
+        _isCustomersByRoadLoadingMore.value = true
+        customersByRoadPage++
+        viewModelScope.launch {
+            getCustomersByRoadUseCase(currentRoadCode, customersByRoadPage)
+                .onSuccess {
+                    currentCustomersByRoadList.addAll(it)
+                    _customersByRoadState.value = UiState.Success(currentCustomersByRoadList.toList())
+                }
+                .onFailure {
+                    customersByRoadPage--
+                }
+            _isCustomersByRoadLoadingMore.value = false
+        }
+    }
+
     fun loadMoreToPublish() {
-        if (isToPublishLoadingMore || toPublishPage >= maxToPublishPage - 1) return
-        isToPublishLoadingMore = true
+        if (_isToPublishLoadingMore.value || toPublishPage >= maxToPublishPage - 1) return
+        _isToPublishLoadingMore.value = true
         toPublishPage++
         val ym = "$currentYear${currentMonth.toString().padStart(2, '0')}"
         viewModelScope.launch {
@@ -228,17 +289,20 @@ class CustomerViewModel(
                     currentToPublishList.addAll(it)
                     _toPublishState.value = UiState.Success(currentToPublishList.toList())
                 }
-            isToPublishLoadingMore = false
+                .onFailure {
+                    toPublishPage--
+                }
+            _isToPublishLoadingMore.value = false
         }
     }
 
     fun loadMoreDebt() {
-        if (isDebtLoadingMore) return
+        if (_isDebtLoadingMore.value) return
         val canLoadYm = debtPageYm < maxDebtPageYm - 1
         val canLoadSys = debtPageSys < maxDebtPageSys - 1
         if (!canLoadYm && !canLoadSys) return
 
-        isDebtLoadingMore = true
+        _isDebtLoadingMore.value = true
         val ym = "$currentYear${currentMonth.toString().padStart(2, '0')}"
         val systemYm = "${com.example.appghichiso.util.currentYear()}${com.example.appghichiso.util.currentMonth().toString().padStart(2, '0')}"
 
@@ -246,27 +310,31 @@ class CustomerViewModel(
             val newItems = mutableListOf<InvoiceDto>()
             if (canLoadYm) {
                 debtPageYm++
-                getDebtListUseCase(ym, currentRoadCode, "", debtPageYm).onSuccess { newItems.addAll(it) }
+                getDebtListUseCase(ym, currentRoadCode, "", debtPageYm)
+                    .onSuccess { newItems.addAll(it) }
+                    .onFailure { debtPageYm-- }
             }
             if (canLoadSys && systemYm != ym) {
                 debtPageSys++
-                getDebtListUseCase(systemYm, currentRoadCode, "", debtPageSys).onSuccess { newItems.addAll(it) }
+                getDebtListUseCase(systemYm, currentRoadCode, "", debtPageSys)
+                    .onSuccess { newItems.addAll(it) }
+                    .onFailure { debtPageSys-- }
             }
             if (newItems.isNotEmpty()) {
                 currentDebtList.addAll(newItems)
                 _debtState.value = UiState.Success(currentDebtList.distinctBy { it.id })
             }
-            isDebtLoadingMore = false
+            _isDebtLoadingMore.value = false
         }
     }
 
     fun loadMorePaid() {
-        if (isPaidLoadingMore) return
+        if (_isPaidLoadingMore.value) return
         val canLoadYm = paidPageYm < maxPaidPageYm - 1
         val canLoadSys = paidPageSys < maxPaidPageSys - 1
         if (!canLoadYm && !canLoadSys) return
 
-        isPaidLoadingMore = true
+        _isPaidLoadingMore.value = true
         val ym = "$currentYear${currentMonth.toString().padStart(2, '0')}"
         val systemYm = "${com.example.appghichiso.util.currentYear()}${com.example.appghichiso.util.currentMonth().toString().padStart(2, '0')}"
 
@@ -274,17 +342,21 @@ class CustomerViewModel(
             val newItems = mutableListOf<InvoiceDto>()
             if (canLoadYm) {
                 paidPageYm++
-                getPaidListUseCase(ym, currentRoadCode, "", paidPageYm).onSuccess { newItems.addAll(it) }
+                getPaidListUseCase(ym, currentRoadCode, "", paidPageYm)
+                    .onSuccess { newItems.addAll(it) }
+                    .onFailure { paidPageYm-- }
             }
             if (canLoadSys && systemYm != ym) {
                 paidPageSys++
-                getPaidListUseCase(systemYm, currentRoadCode, "", paidPageSys).onSuccess { newItems.addAll(it) }
+                getPaidListUseCase(systemYm, currentRoadCode, "", paidPageSys)
+                    .onSuccess { newItems.addAll(it) }
+                    .onFailure { paidPageSys-- }
             }
             if (newItems.isNotEmpty()) {
                 currentPaidList.addAll(newItems)
                 _paidState.value = UiState.Success(currentPaidList.distinctBy { it.id })
             }
-            isPaidLoadingMore = false
+            _isPaidLoadingMore.value = false
         }
     }
 

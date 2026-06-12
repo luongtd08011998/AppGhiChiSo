@@ -1,6 +1,7 @@
 package com.example.appghichiso.presentation.customer
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -31,6 +33,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,7 +62,9 @@ fun CustomerTabContent(
     searchQuery: String,
     isRecorded: (String) -> Boolean,
     onCustomerSelected: (Customer) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit = {},
+    isLoadingMore: Boolean = false
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
     var filterType by remember { mutableStateOf(CustomerFilter.ALL) }
@@ -232,7 +239,22 @@ fun CustomerTabContent(
                         isRefreshing = false
                     }
                 ) {
+                    val listState = rememberLazyListState()
+                    val isAtBottom by remember {
+                        derivedStateOf {
+                            val layoutInfo = listState.layoutInfo
+                            val totalItems = layoutInfo.totalItemsCount
+                            val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+                            lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
+                        }
+                    }
+
+                    LaunchedEffect(isAtBottom) {
+                        if (isAtBottom) onLoadMore()
+                    }
+
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 24.dp)
                     ) {
@@ -246,6 +268,19 @@ fun CustomerTabContent(
                                     onCustomerSelected(customer)
                                 }
                             )
+                        }
+                        if (isLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            }
                         }
                     }
                 }

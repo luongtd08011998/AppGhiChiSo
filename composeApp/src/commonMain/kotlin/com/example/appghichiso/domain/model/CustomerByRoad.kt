@@ -6,5 +6,6 @@ data class CustomerByRoad(
     val customerName: String,
     val customerAddress: String,
     val phone: String,
-    val sms: String
+    val sms: String,
+    val numOfPages: Int = 1
 )

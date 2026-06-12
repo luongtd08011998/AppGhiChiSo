@@ -12,19 +12,10 @@ private const val TAG = "CustomerRepository"
 
 class CustomerRepositoryImpl(private val apiService: CustomerApiService) : CustomerRepository {
 
-    override suspend fun getCustomers(roadCode: String, year: Int, month: Int): Result<List<Customer>> {
+    override suspend fun getCustomers(roadCode: String, year: Int, month: Int, page: Int): Result<List<Customer>> {
         return try {
-            val response = apiService.getInvoicesByRoad(roadCode, year, month, page = 0)
-            val firstPageData = response.data ?: emptyList()
-            val totalPages = firstPageData.firstOrNull()?.numOfPages ?: 1
-            val allData = firstPageData.toMutableList()
-
-            if (totalPages > 1) {
-                for (page in 1 until totalPages) {
-                    val pageResponse = apiService.getInvoicesByRoad(roadCode, year, month, page = page)
-                    pageResponse.data?.let { allData.addAll(it) }
-                }
-            }
+            val response = apiService.getInvoicesByRoad(roadCode, year, month, page = page)
+            val allData = response.data ?: emptyList()
 
             val customers = allData.map { dto ->
                 Customer(
@@ -43,7 +34,8 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
                     roadName = "",
                     roadOrder = 0,
                     priceSchemaName = "",
-                    invoiceId = if (dto.id > 0) dto.id else null
+                    invoiceId = if (dto.id > 0) dto.id else null,
+                    numOfPages = dto.numOfPages
                 )
             }
             if (response.status?.code == "success" || response.data != null) {
@@ -66,31 +58,23 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
         }
     }
 
-    override suspend fun getCustomersWithInvoices(roadCode: String, year: Int, month: Int): Result<List<Customer>> {
-        return getCustomers(roadCode, year, month)
+    override suspend fun getCustomersWithInvoices(roadCode: String, year: Int, month: Int, page: Int): Result<List<Customer>> {
+        return getCustomers(roadCode, year, month, page)
     }
 
-    override suspend fun getCustomersByRoad(roadCode: String): Result<List<CustomerByRoad>> {
+    override suspend fun getCustomersByRoad(roadCode: String, page: Int): Result<List<CustomerByRoad>> {
         return try {
-            val firstPage = apiService.getCustomersByRoad(roadCode, page = 0)
-            val totalPages = firstPage.firstOrNull()?.numOfPages ?: 1
-            val allData = firstPage.toMutableList()
+            val pageData = apiService.getCustomersByRoad(roadCode, page = page)
 
-            if (totalPages > 1) {
-                for (page in 1 until totalPages) {
-                    val pageData = apiService.getCustomersByRoad(roadCode, page = page)
-                    allData.addAll(pageData)
-                }
-            }
-
-            val result = allData.map { dto ->
+            val result = pageData.map { dto ->
                 CustomerByRoad(
                     id = dto.id,
                     customerCode = dto.code,
                     customerName = dto.name,
                     customerAddress = dto.address,
                     phone = dto.phone,
-                    sms = dto.sms
+                    sms = dto.sms,
+                    numOfPages = dto.numOfPages
                 )
             }
             Result.success(result)

@@ -70,6 +70,11 @@ fun CustomerListScreen(
     val activeInvoiceSubTab by viewModel.activeInvoiceSubTab.collectAsStateWithLifecycle()
     val tvanActionState by viewModel.tvanActionState.collectAsStateWithLifecycle()
     val customersByRoadState by viewModel.customersByRoadState.collectAsStateWithLifecycle()
+    val isCustomerLoadingMore by viewModel.isCustomerLoadingMore.collectAsStateWithLifecycle()
+    val isCustomersByRoadLoadingMore by viewModel.isCustomersByRoadLoadingMore.collectAsStateWithLifecycle()
+    val isToPublishLoadingMore by viewModel.isToPublishLoadingMore.collectAsStateWithLifecycle()
+    val isDebtLoadingMore by viewModel.isDebtLoadingMore.collectAsStateWithLifecycle()
+    val isPaidLoadingMore by viewModel.isPaidLoadingMore.collectAsStateWithLifecycle()
 
     var searchQuery by remember { mutableStateOf("") }
     val selectedInvoiceIds = remember { mutableStateListOf<Long>() }
@@ -258,7 +263,9 @@ fun CustomerListScreen(
                         CustomersByRoadTabContent(
                             state = customersByRoadState,
                             searchQuery = searchQuery,
-                            onRefresh = { viewModel.refresh() }
+                            onRefresh = { viewModel.refresh() },
+                            onLoadMore = { viewModel.loadMoreCustomersByRoad() },
+                            isLoadingMore = isCustomersByRoadLoadingMore
                         )
                     }
                     1 -> {
@@ -273,7 +280,9 @@ fun CustomerListScreen(
                                         appStateHolder.selectedCustomer = customer
                                         onCustomerSelected(customer)
                                     },
-                                    onRefresh = { viewModel.refresh() }
+                                    onRefresh = { viewModel.refresh() },
+                                    onLoadMore = { viewModel.loadMoreCustomers() },
+                                    isLoadingMore = isCustomerLoadingMore
                                 )
                             }
                             1 -> {
@@ -284,7 +293,8 @@ fun CustomerListScreen(
                                     isPublishing = tvanActionState is TvanActionState.Loading,
                                     onPublishClick = { ids -> viewModel.publishSelectedTvan(ids) },
                                     onRefresh = { viewModel.refresh() },
-                                    onLoadMore = { viewModel.loadMoreToPublish() }
+                                    onLoadMore = { viewModel.loadMoreToPublish() },
+                                    isLoadingMore = isToPublishLoadingMore
                                 )
                             }
                             2 -> {
@@ -293,7 +303,8 @@ fun CustomerListScreen(
                                     searchQuery = searchQuery,
                                     onPayClick = { inv -> invoiceToPay = inv },
                                     onRefresh = { viewModel.refresh() },
-                                    onLoadMore = { viewModel.loadMoreDebt() }
+                                    onLoadMore = { viewModel.loadMoreDebt() },
+                                    isLoadingMore = isDebtLoadingMore
                                 )
                             }
                             3 -> {
@@ -302,7 +313,8 @@ fun CustomerListScreen(
                                     searchQuery = searchQuery,
                                     onReceiptClick = { inv -> viewModel.loadReceipt(inv.id) },
                                     onRefresh = { viewModel.refresh() },
-                                    onLoadMore = { viewModel.loadMorePaid() }
+                                    onLoadMore = { viewModel.loadMorePaid() },
+                                    isLoadingMore = isPaidLoadingMore
                                 )
                             }
                         }

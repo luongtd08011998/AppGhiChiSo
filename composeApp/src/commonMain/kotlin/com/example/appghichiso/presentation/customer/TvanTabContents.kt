@@ -56,7 +56,8 @@ fun ToPublishTabContent(
     isPublishing: Boolean = false,
     onPublishClick: (List<Long>) -> Unit,
     onRefresh: () -> Unit,
-    onLoadMore: () -> Unit
+    onLoadMore: () -> Unit,
+    isLoadingMore: Boolean = false
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -152,6 +153,19 @@ fun ToPublishTabContent(
                                             }
                                         }
                                     )
+                                }
+                                if (isLoadingMore) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(24.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -266,7 +280,8 @@ fun DebtTabContent(
     searchQuery: String,
     onPayClick: (InvoiceDto) -> Unit,
     onRefresh: () -> Unit,
-    onLoadMore: () -> Unit
+    onLoadMore: () -> Unit,
+    isLoadingMore: Boolean = false
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -323,6 +338,19 @@ fun DebtTabContent(
                                 invoice = invoice,
                                 onPayClick = { onPayClick(invoice) }
                             )
+                        }
+                        if (isLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -405,7 +433,8 @@ fun PaidTabContent(
     searchQuery: String,
     onReceiptClick: (InvoiceDto) -> Unit,
     onRefresh: () -> Unit,
-    onLoadMore: () -> Unit
+    onLoadMore: () -> Unit,
+    isLoadingMore: Boolean = false
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -462,6 +491,19 @@ fun PaidTabContent(
                                 invoice = invoice,
                                 onReceiptClick = { onReceiptClick(invoice) }
                             )
+                        }
+                        if (isLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            }
                         }
                     }
                 }

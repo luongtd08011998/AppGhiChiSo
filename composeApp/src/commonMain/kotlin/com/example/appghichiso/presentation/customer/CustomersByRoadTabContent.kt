@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,6 +38,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,7 +63,9 @@ import org.koin.compose.viewmodel.koinViewModel
 fun CustomersByRoadTabContent(
     state: UiState<List<CustomerByRoad>>,
     searchQuery: String,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit = {},
+    isLoadingMore: Boolean = false
 ) {
     val viewModel = koinViewModel<CustomerViewModel>()
     val smsUpdateState by viewModel.smsUpdateState.collectAsStateWithLifecycle()
@@ -245,7 +251,22 @@ fun CustomersByRoadTabContent(
                             isRefreshing = false
                         }
                     ) {
+                        val listState = rememberLazyListState()
+                        val isAtBottom by remember {
+                            derivedStateOf {
+                                val layoutInfo = listState.layoutInfo
+                                val totalItems = layoutInfo.totalItemsCount
+                                val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+                                lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
+                            }
+                        }
+
+                        LaunchedEffect(isAtBottom) {
+                            if (isAtBottom) onLoadMore()
+                        }
+
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 24.dp)
                         ) {
@@ -261,6 +282,19 @@ fun CustomersByRoadTabContent(
                                         selectedCustomer = customer
                                     }
                                 )
+                            }
+                            if (isLoadingMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
