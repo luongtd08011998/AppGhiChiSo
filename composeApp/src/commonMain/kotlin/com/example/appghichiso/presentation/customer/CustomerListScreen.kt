@@ -67,7 +67,9 @@ fun CustomerListScreen(
     val debtState by viewModel.debtState.collectAsStateWithLifecycle()
     val paidState by viewModel.paidState.collectAsStateWithLifecycle()
     val activeTab by viewModel.activeTab.collectAsStateWithLifecycle()
+    val activeInvoiceSubTab by viewModel.activeInvoiceSubTab.collectAsStateWithLifecycle()
     val tvanActionState by viewModel.tvanActionState.collectAsStateWithLifecycle()
+    val customersByRoadState by viewModel.customersByRoadState.collectAsStateWithLifecycle()
 
     var searchQuery by remember { mutableStateOf("") }
     val selectedInvoiceIds = remember { mutableStateListOf<Long>() }
@@ -145,16 +147,16 @@ fun CustomerListScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
         ) {
-            /* ── Tabs Row ── */
-            val tabTitles = listOf("Ghi chỉ số", "Chưa phát hành", "Nợ/Thu tiền", "Đã thanh toán")
+            /* ── 2 Main Tabs ── */
+            val mainTabTitles = listOf("Khách Hàng", "Hóa Đơn")
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.primary)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                tabTitles.forEachIndexed { index, title ->
+                mainTabTitles.forEachIndexed { index, title ->
                     val isSelected = activeTab == index
                     Surface(
                         modifier = Modifier.weight(1f).clickable {
@@ -166,19 +168,56 @@ fun CustomerListScreen(
                     ) {
                         Text(
                             title,
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            modifier = Modifier.padding(vertical = 10.dp),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                            style = MaterialTheme.typography.labelSmall
+                            style = MaterialTheme.typography.labelMedium
                         )
                     }
                 }
             }
 
-            /* ── Gradient search banner ── */
+            /* ── Invoice Sub-Tabs (only when Tab 1 – Hóa Đơn is active) ── */
+            if (activeTab == 1) {
+                val invoiceSubTabs = listOf("Ghi Chỉ Số", "Chưa PH", "Nợ/Thu", "Đã TT")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    invoiceSubTabs.forEachIndexed { index, title ->
+                        val isSelected = activeInvoiceSubTab == index
+                        Surface(
+                            modifier = Modifier.weight(1f).clickable {
+                                searchQuery = ""
+                                viewModel.setInvoiceSubTab(index)
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f)
+                        ) {
+                            Text(
+                                title,
+                                modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                        else MaterialTheme.colorScheme.onPrimaryContainer,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            /* ── Gradient Search Banner ── */
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -215,48 +254,61 @@ fun CustomerListScreen(
             Box(modifier = Modifier.weight(1f)) {
                 when (activeTab) {
                     0 -> {
-                        CustomerTabContent(
-                            state = uiState,
+                        // Tab Khách Hàng
+                        CustomersByRoadTabContent(
+                            state = customersByRoadState,
                             searchQuery = searchQuery,
-                            isRecorded = { code -> viewModel.isRecorded(code) },
-                            onCustomerSelected = { customer ->
-                                appStateHolder.selectedCustomer = customer
-                                onCustomerSelected(customer)
-                            },
                             onRefresh = { viewModel.refresh() }
                         )
                     }
                     1 -> {
-                        ToPublishTabContent(
-                            state = toPublishState,
-                            searchQuery = searchQuery,
-                            selectedInvoiceIds = selectedInvoiceIds,
-                            isPublishing = tvanActionState is TvanActionState.Loading,
-                            onPublishClick = { ids -> viewModel.publishSelectedTvan(ids) },
-                            onRefresh = { viewModel.refresh() }
-                        )
-                    }
-                    2 -> {
-                        DebtTabContent(
-                            state = debtState,
-                            searchQuery = searchQuery,
-                            onPayClick = { inv -> invoiceToPay = inv },
-                            onRefresh = { viewModel.refresh() }
-                        )
-                    }
-                    3 -> {
-                        PaidTabContent(
-                            state = paidState,
-                            searchQuery = searchQuery,
-                            onReceiptClick = { inv -> viewModel.loadReceipt(inv.id) },
-                            onRefresh = { viewModel.refresh() }
-                        )
+                        // Tab Hóa Đơn – 4 sub-tabs
+                        when (activeInvoiceSubTab) {
+                            0 -> {
+                                CustomerTabContent(
+                                    state = uiState,
+                                    searchQuery = searchQuery,
+                                    isRecorded = { code -> viewModel.isRecorded(code) },
+                                    onCustomerSelected = { customer ->
+                                        appStateHolder.selectedCustomer = customer
+                                        onCustomerSelected(customer)
+                                    },
+                                    onRefresh = { viewModel.refresh() }
+                                )
+                            }
+                            1 -> {
+                                ToPublishTabContent(
+                                    state = toPublishState,
+                                    searchQuery = searchQuery,
+                                    selectedInvoiceIds = selectedInvoiceIds,
+                                    isPublishing = tvanActionState is TvanActionState.Loading,
+                                    onPublishClick = { ids -> viewModel.publishSelectedTvan(ids) },
+                                    onRefresh = { viewModel.refresh() }
+                                )
+                            }
+                            2 -> {
+                                DebtTabContent(
+                                    state = debtState,
+                                    searchQuery = searchQuery,
+                                    onPayClick = { inv -> invoiceToPay = inv },
+                                    onRefresh = { viewModel.refresh() }
+                                )
+                            }
+                            3 -> {
+                                PaidTabContent(
+                                    state = paidState,
+                                    searchQuery = searchQuery,
+                                    onReceiptClick = { inv -> viewModel.loadReceipt(inv.id) },
+                                    onRefresh = { viewModel.refresh() }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        /* ── Dialog Giấy Báo Tiền Nước / Thu Tiền ── */
+        /* ── Dialog Thu Tiền ── */
         if (invoiceToPay != null) {
             val isLoading = tvanActionState is TvanActionState.Loading
             InvoicePaperDialog(
@@ -288,7 +340,7 @@ fun CustomerListScreen(
             )
         }
 
-        /* ── Dialog Thành Công Phát Hành TVAN ── */
+        /* ── Dialog Phát Hành Thành Công ── */
         if (showPublishSuccessDialog != null) {
             PublishSuccessDialog(
                 message = showPublishSuccessDialog!!,

@@ -2,6 +2,7 @@ package com.example.appghichiso.data.repository
 
 import com.example.appghichiso.data.api.CustomerApiService
 import com.example.appghichiso.domain.model.Customer
+import com.example.appghichiso.domain.model.CustomerByRoad
 import com.example.appghichiso.domain.repository.CustomerRepository
 import com.example.appghichiso.util.Logger
 import com.example.appghichiso.util.currentMonth
@@ -17,7 +18,7 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
             val firstPageData = response.data ?: emptyList()
             val totalPages = firstPageData.firstOrNull()?.numOfPages ?: 1
             val allData = firstPageData.toMutableList()
-            
+
             if (totalPages > 1) {
                 for (page in 1 until totalPages) {
                     val pageResponse = apiService.getInvoicesByRoad(roadCode, year, month, page = page)
@@ -68,5 +69,34 @@ class CustomerRepositoryImpl(private val apiService: CustomerApiService) : Custo
     override suspend fun getCustomersWithInvoices(roadCode: String, year: Int, month: Int): Result<List<Customer>> {
         return getCustomers(roadCode, year, month)
     }
-}
 
+    override suspend fun getCustomersByRoad(roadCode: String): Result<List<CustomerByRoad>> {
+        return try {
+            val firstPage = apiService.getCustomersByRoad(roadCode, page = 0)
+            val totalPages = firstPage.firstOrNull()?.numOfPages ?: 1
+            val allData = firstPage.toMutableList()
+
+            if (totalPages > 1) {
+                for (page in 1 until totalPages) {
+                    val pageData = apiService.getCustomersByRoad(roadCode, page = page)
+                    allData.addAll(pageData)
+                }
+            }
+
+            val result = allData.map { dto ->
+                CustomerByRoad(
+                    id = dto.id,
+                    customerCode = dto.code,
+                    customerName = dto.name,
+                    customerAddress = dto.address,
+                    phone = dto.phone,
+                    sms = dto.sms
+                )
+            }
+            Result.success(result)
+        } catch (e: Exception) {
+            Logger.e(TAG, e) { "getCustomersByRoad failed: roadCode=$roadCode" }
+            Result.failure(Exception("Không thể tải danh sách khách hàng: ${e.message}"))
+        }
+    }
+}

@@ -86,9 +86,7 @@ internal fun ColumnScope.MeterReadingContent(
     isPublishImmediately: Boolean,
     onPrev: () -> Unit,
     onNext: () -> Unit,
-    onSubmit: (publishImmediate: Boolean) -> Unit,
-    onEditPhone: () -> Unit,
-    onEditSms: () -> Unit
+    onSubmit: (publishImmediate: Boolean) -> Unit
 ) {
     val newIndex = newIndexText.toIntOrNull()
 
@@ -162,9 +160,7 @@ internal fun ColumnScope.MeterReadingContent(
             CustomerSummaryCard(
                 customer    = customer,
                 phoneNumber = phoneNumber,
-                smsNumber   = smsNumber,
-                onEditPhone = onEditPhone,
-                onEditSms   = onEditSms
+                smsNumber   = smsNumber
             )
 
             Spacer(Modifier.height(24.dp))
@@ -472,9 +468,7 @@ private fun SubmitButtons(
 private fun CustomerSummaryCard(
     customer: Customer,
     phoneNumber: String?,
-    smsNumber: String?,
-    onEditPhone: () -> Unit,
-    onEditSms: () -> Unit
+    smsNumber: String?
 ) {
     Card(
         modifier  = Modifier.fillMaxWidth(),
@@ -535,27 +529,23 @@ private fun CustomerSummaryCard(
             /* Phone row */
             Spacer(Modifier.height(8.dp))
             ContactRow(
-                label    = "Điện thoại",
-                value    = phoneNumber ?: customer.customerPhone.ifBlank { "—" },
-                onEdit   = onEditPhone,
-                editDesc = "Sửa SĐT"
+                label = "Điện thoại",
+                value = phoneNumber ?: customer.customerPhone.ifBlank { "—" }
             )
 
             /* SMS row */
             Spacer(Modifier.height(8.dp))
             ContactRow(
-                label    = "Số SMS",
-                value    = smsNumber ?: "Đang tải...",
-                onEdit   = onEditSms,
-                editDesc = "Sửa SMS"
+                label = "Số SMS",
+                value = smsNumber ?: "Đang tải..."
             )
         }
     }
 }
 
-/* Shared contact row (SĐT / SMS) with edit icon */
+/* Shared contact row (SĐT / SMS) — read-only */
 @Composable
-private fun ContactRow(label: String, value: String, onEdit: () -> Unit, editDesc: String) {
+private fun ContactRow(label: String, value: String) {
     Card(
         shape  = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -582,13 +572,6 @@ private fun ContactRow(label: String, value: String, onEdit: () -> Unit, editDes
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(value, style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-            Surface(onClick = onEdit, shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(36.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Edit, contentDescription = editDesc,
-                        modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }

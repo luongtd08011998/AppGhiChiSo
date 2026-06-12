@@ -359,14 +359,6 @@ fun MeterReadingScreen(
                     isPublishImmediately = publishImmediate
                     if (isAbnormalConsumption) showWarningDialog = true
                     else showConfirmDialog = true
-                },
-                onEditPhone = {
-                    viewModel.resetPhoneUpdateState()
-                    showPhoneEditDialog = true
-                },
-                onEditSms = {
-                    viewModel.resetSmsUpdateState()
-                    showSmsEditDialog = true
                 }
             )
         }

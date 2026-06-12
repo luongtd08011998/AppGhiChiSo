@@ -1,6 +1,7 @@
 package com.example.appghichiso.data.api
 
 import com.example.appghichiso.data.api.dto.CustomersApiResponse
+import com.example.appghichiso.data.api.dto.CustomerByRoadResponse
 import com.example.appghichiso.data.api.dto.InvoiceByRoadResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -17,6 +18,11 @@ class CustomerApiService(private val client: HttpClient) {
         client.get(
             "$BASE_URL/api/jsonws/cm-portlet.api/get-invoices-by-road" +
                 "/road-code/$roadCode/year/$year/month/$month/page/$page"
+        ).body()
+
+    suspend fun getCustomersByRoad(roadCode: String, page: Int): CustomerByRoadResponse =
+        client.get(
+            "http://toctienltd.vn/cm-portlet/api/customers_by_road?rc=$roadCode&pn=$page"
         ).body()
 }
 

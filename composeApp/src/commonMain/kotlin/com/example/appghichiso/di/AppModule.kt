@@ -18,6 +18,7 @@ import com.example.appghichiso.domain.repository.MeterReadingRepository
 import com.example.appghichiso.domain.repository.RoadRepository
 import com.example.appghichiso.domain.repository.SmsRepository
 import com.example.appghichiso.domain.usecase.GetCustomersUseCase
+import com.example.appghichiso.domain.usecase.GetCustomersByRoadUseCase
 import com.example.appghichiso.domain.usecase.GetRoadsUseCase
 import com.example.appghichiso.domain.usecase.LoginUseCase
 import com.example.appghichiso.domain.usecase.SubmitMeterReadingUseCase
@@ -123,6 +124,7 @@ private fun useCaseModule() = module {
     factory { LoginUseCase(get()) }
     factory { GetRoadsUseCase(get()) }
     factory { GetCustomersUseCase(get()) }
+    factory { GetCustomersByRoadUseCase(get()) }
     factory { SubmitMeterReadingUseCase(get(), get()) }
     factory { com.example.appghichiso.domain.usecase.GetInvoiceStatusUseCase(get()) }
     factory { GetToPublishListUseCase(get()) }
@@ -136,7 +138,7 @@ private fun useCaseModule() = module {
 private fun viewModelModule() = module {
     viewModel { AuthViewModel(get(), get(), get(), get<SessionManager>()) }
     viewModel { RouteViewModel(get()) }
-    viewModel { CustomerViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { CustomerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
     viewModel { MeterReadingViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
 }
 
