@@ -77,6 +77,26 @@ class CustomerViewModel(
 
     private var currentRoadCode: String = ""
 
+    // ── Pagination States ──
+    private var toPublishPage = 0
+    private var maxToPublishPage = 1
+    private var isToPublishLoadingMore = false
+    private val currentToPublishList = mutableListOf<InvoiceDto>()
+
+    private var debtPageYm = 0
+    private var maxDebtPageYm = 1
+    private var debtPageSys = 0
+    private var maxDebtPageSys = 1
+    private var isDebtLoadingMore = false
+    private val currentDebtList = mutableListOf<InvoiceDto>()
+
+    private var paidPageYm = 0
+    private var maxPaidPageYm = 1
+    private var paidPageSys = 0
+    private var maxPaidPageSys = 1
+    private var isPaidLoadingMore = false
+    private val currentPaidList = mutableListOf<InvoiceDto>()
+
     val currentYear: Int get() = appStateHolder.billingYear.takeIf { it > 0 } ?: currentYear()
     val currentMonth: Int get() = appStateHolder.billingMonth.takeIf { it > 0 } ?: currentMonth()
 
@@ -125,48 +145,146 @@ class CustomerViewModel(
                 }
                 1 -> {
                     // Chưa Phát Hành
+                    toPublishPage = 0
+                    currentToPublishList.clear()
                     _toPublishState.value = UiState.Loading
-                    getToPublishListUseCase(ym, currentRoadCode, "")
-                        .onSuccess { _toPublishState.value = UiState.Success(it) }
+                    getToPublishListUseCase(ym, currentRoadCode, "", 0)
+                        .onSuccess {
+                            maxToPublishPage = it.firstOrNull()?.numOfPages ?: 1
+                            currentToPublishList.addAll(it)
+                            _toPublishState.value = UiState.Success(currentToPublishList.toList())
+                        }
                         .onFailure { _toPublishState.value = UiState.Error(it.message ?: "Lỗi tải danh sách chưa phát hành") }
                 }
                 2 -> {
                     // Nợ / Thu Tiền
+                    debtPageYm = 0
+                    debtPageSys = 0
+                    currentDebtList.clear()
                     _debtState.value = UiState.Loading
-                    val ymResult = getDebtListUseCase(ym, currentRoadCode, "")
+                    val ymResult = getDebtListUseCase(ym, currentRoadCode, "", 0)
                     val systemYmResult = if (systemYm != ym) {
-                        getDebtListUseCase(systemYm, currentRoadCode, "")
+                        getDebtListUseCase(systemYm, currentRoadCode, "", 0)
                     } else null
 
                     if (ymResult.isSuccess) {
                         val debtsYm = ymResult.getOrNull() ?: emptyList()
+                        maxDebtPageYm = debtsYm.firstOrNull()?.numOfPages ?: 1
                         val debtsSys = if (systemYmResult != null && systemYmResult.isSuccess) {
-                            systemYmResult.getOrNull() ?: emptyList()
-                        } else emptyList()
-                        _debtState.value = UiState.Success((debtsYm + debtsSys).distinctBy { it.id })
+                            val sys = systemYmResult.getOrNull() ?: emptyList()
+                            maxDebtPageSys = sys.firstOrNull()?.numOfPages ?: 1
+                            sys
+                        } else {
+                            maxDebtPageSys = 1
+                            emptyList()
+                        }
+                        currentDebtList.addAll((debtsYm + debtsSys).distinctBy { it.id })
+                        _debtState.value = UiState.Success(currentDebtList.toList())
                     } else {
                         _debtState.value = UiState.Error(ymResult.exceptionOrNull()?.message ?: "Lỗi tải danh sách nợ")
                     }
                 }
                 3 -> {
                     // Đã Thanh Toán
+                    paidPageYm = 0
+                    paidPageSys = 0
+                    currentPaidList.clear()
                     _paidState.value = UiState.Loading
-                    val ymResult = getPaidListUseCase(ym, currentRoadCode, "")
+                    val ymResult = getPaidListUseCase(ym, currentRoadCode, "", 0)
                     val systemYmResult = if (systemYm != ym) {
-                        getPaidListUseCase(systemYm, currentRoadCode, "")
+                        getPaidListUseCase(systemYm, currentRoadCode, "", 0)
                     } else null
 
                     if (ymResult.isSuccess) {
                         val paidYm = ymResult.getOrNull() ?: emptyList()
+                        maxPaidPageYm = paidYm.firstOrNull()?.numOfPages ?: 1
                         val paidSys = if (systemYmResult != null && systemYmResult.isSuccess) {
-                            systemYmResult.getOrNull() ?: emptyList()
-                        } else emptyList()
-                        _paidState.value = UiState.Success((paidYm + paidSys).distinctBy { it.id })
+                            val sys = systemYmResult.getOrNull() ?: emptyList()
+                            maxPaidPageSys = sys.firstOrNull()?.numOfPages ?: 1
+                            sys
+                        } else {
+                            maxPaidPageSys = 1
+                            emptyList()
+                        }
+                        currentPaidList.addAll((paidYm + paidSys).distinctBy { it.id })
+                        _paidState.value = UiState.Success(currentPaidList.toList())
                     } else {
                         _paidState.value = UiState.Error(ymResult.exceptionOrNull()?.message ?: "Lỗi tải danh sách đã thanh toán")
                     }
                 }
             }
+        }
+    }
+
+    // ── Pagination Logic ──
+    fun loadMoreToPublish() {
+        if (isToPublishLoadingMore || toPublishPage >= maxToPublishPage - 1) return
+        isToPublishLoadingMore = true
+        toPublishPage++
+        val ym = "$currentYear${currentMonth.toString().padStart(2, '0')}"
+        viewModelScope.launch {
+            getToPublishListUseCase(ym, currentRoadCode, "", toPublishPage)
+                .onSuccess {
+                    currentToPublishList.addAll(it)
+                    _toPublishState.value = UiState.Success(currentToPublishList.toList())
+                }
+            isToPublishLoadingMore = false
+        }
+    }
+
+    fun loadMoreDebt() {
+        if (isDebtLoadingMore) return
+        val canLoadYm = debtPageYm < maxDebtPageYm - 1
+        val canLoadSys = debtPageSys < maxDebtPageSys - 1
+        if (!canLoadYm && !canLoadSys) return
+
+        isDebtLoadingMore = true
+        val ym = "$currentYear${currentMonth.toString().padStart(2, '0')}"
+        val systemYm = "${com.example.appghichiso.util.currentYear()}${com.example.appghichiso.util.currentMonth().toString().padStart(2, '0')}"
+
+        viewModelScope.launch {
+            val newItems = mutableListOf<InvoiceDto>()
+            if (canLoadYm) {
+                debtPageYm++
+                getDebtListUseCase(ym, currentRoadCode, "", debtPageYm).onSuccess { newItems.addAll(it) }
+            }
+            if (canLoadSys && systemYm != ym) {
+                debtPageSys++
+                getDebtListUseCase(systemYm, currentRoadCode, "", debtPageSys).onSuccess { newItems.addAll(it) }
+            }
+            if (newItems.isNotEmpty()) {
+                currentDebtList.addAll(newItems)
+                _debtState.value = UiState.Success(currentDebtList.distinctBy { it.id })
+            }
+            isDebtLoadingMore = false
+        }
+    }
+
+    fun loadMorePaid() {
+        if (isPaidLoadingMore) return
+        val canLoadYm = paidPageYm < maxPaidPageYm - 1
+        val canLoadSys = paidPageSys < maxPaidPageSys - 1
+        if (!canLoadYm && !canLoadSys) return
+
+        isPaidLoadingMore = true
+        val ym = "$currentYear${currentMonth.toString().padStart(2, '0')}"
+        val systemYm = "${com.example.appghichiso.util.currentYear()}${com.example.appghichiso.util.currentMonth().toString().padStart(2, '0')}"
+
+        viewModelScope.launch {
+            val newItems = mutableListOf<InvoiceDto>()
+            if (canLoadYm) {
+                paidPageYm++
+                getPaidListUseCase(ym, currentRoadCode, "", paidPageYm).onSuccess { newItems.addAll(it) }
+            }
+            if (canLoadSys && systemYm != ym) {
+                paidPageSys++
+                getPaidListUseCase(systemYm, currentRoadCode, "", paidPageSys).onSuccess { newItems.addAll(it) }
+            }
+            if (newItems.isNotEmpty()) {
+                currentPaidList.addAll(newItems)
+                _paidState.value = UiState.Success(currentPaidList.distinctBy { it.id })
+            }
+            isPaidLoadingMore = false
         }
     }
 

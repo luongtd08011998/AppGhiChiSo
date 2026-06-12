@@ -14,54 +14,30 @@ class TvanRepositoryImpl(
     private val tvanApiService: TvanApiService
 ) : TvanRepository {
     
-    override suspend fun getToPublishList(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> {
+    override suspend fun getToPublishList(yearMonth: String, roadCode: String, customerCode: String, page: Int): Result<List<InvoiceDto>> {
         return try {
-            val firstPage = tvanApiService.getToPublishList(yearMonth, roadCode, customerCode, pn = 0)
-            val allInvoices = firstPage.toMutableList()
-            val totalPages = firstPage.firstOrNull()?.numOfPages ?: 1
-            if (totalPages > 1) {
-                for (page in 1 until totalPages) {
-                    val pageData = tvanApiService.getToPublishList(yearMonth, roadCode, customerCode, pn = page)
-                    allInvoices.addAll(pageData)
-                }
-            }
-            Result.success(allInvoices)
+            val pageData = tvanApiService.getToPublishList(yearMonth, roadCode, customerCode, pn = page)
+            Result.success(pageData)
         } catch (e: Exception) {
             Logger.e(TAG, e) { "getToPublishList failed: ym=$yearMonth rc=$roadCode cc=$customerCode" }
             Result.failure(e)
         }
     }
 
-    override suspend fun getDebtList(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> {
+    override suspend fun getDebtList(yearMonth: String, roadCode: String, customerCode: String, page: Int): Result<List<InvoiceDto>> {
         return try {
-            val firstPage = tvanApiService.getDebtList(yearMonth, roadCode, customerCode, pn = 0)
-            val allInvoices = firstPage.toMutableList()
-            val totalPages = firstPage.firstOrNull()?.numOfPages ?: 1
-            if (totalPages > 1) {
-                for (page in 1 until totalPages) {
-                    val pageData = tvanApiService.getDebtList(yearMonth, roadCode, customerCode, pn = page)
-                    allInvoices.addAll(pageData)
-                }
-            }
-            Result.success(allInvoices)
+            val pageData = tvanApiService.getDebtList(yearMonth, roadCode, customerCode, pn = page)
+            Result.success(pageData)
         } catch (e: Exception) {
             Logger.e(TAG, e) { "getDebtList failed: ym=$yearMonth rc=$roadCode cc=$customerCode" }
             Result.failure(e)
         }
     }
 
-    override suspend fun getPaidList(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> {
+    override suspend fun getPaidList(yearMonth: String, roadCode: String, customerCode: String, page: Int): Result<List<InvoiceDto>> {
         return try {
-            val firstPage = tvanApiService.getPaidList(yearMonth, roadCode, customerCode, pn = 0)
-            val allInvoices = firstPage.toMutableList()
-            val totalPages = firstPage.firstOrNull()?.numOfPages ?: 1
-            if (totalPages > 1) {
-                for (page in 1 until totalPages) {
-                    val pageData = tvanApiService.getPaidList(yearMonth, roadCode, customerCode, pn = page)
-                    allInvoices.addAll(pageData)
-                }
-            }
-            Result.success(allInvoices)
+            val pageData = tvanApiService.getPaidList(yearMonth, roadCode, customerCode, pn = page)
+            Result.success(pageData)
         } catch (e: Exception) {
             Logger.e(TAG, e) { "getPaidList failed: ym=$yearMonth rc=$roadCode cc=$customerCode" }
             Result.failure(e)

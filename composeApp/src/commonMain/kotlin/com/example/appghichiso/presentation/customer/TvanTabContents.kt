@@ -31,6 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,7 +55,8 @@ fun ToPublishTabContent(
     selectedInvoiceIds: SnapshotStateList<Long>,
     isPublishing: Boolean = false,
     onPublishClick: (List<Long>) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -113,7 +117,22 @@ fun ToPublishTabContent(
                                 isRefreshing = false
                             }
                         ) {
+                            val listState = rememberLazyListState()
+                            val isAtBottom by remember {
+                                derivedStateOf {
+                                    val layoutInfo = listState.layoutInfo
+                                    val totalItems = layoutInfo.totalItemsCount
+                                    val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+                                    lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
+                                }
+                            }
+
+                            LaunchedEffect(isAtBottom) {
+                                if (isAtBottom) onLoadMore()
+                            }
+
                             LazyColumn(
+                                state = listState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(vertical = 8.dp)
                             ) {
@@ -246,7 +265,8 @@ fun DebtTabContent(
     state: UiState<List<InvoiceDto>>,
     searchQuery: String,
     onPayClick: (InvoiceDto) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -278,7 +298,22 @@ fun DebtTabContent(
                         isRefreshing = false
                     }
                 ) {
+                    val listState = rememberLazyListState()
+                    val isAtBottom by remember {
+                        derivedStateOf {
+                            val layoutInfo = listState.layoutInfo
+                            val totalItems = layoutInfo.totalItemsCount
+                            val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+                            lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
+                        }
+                    }
+
+                    LaunchedEffect(isAtBottom) {
+                        if (isAtBottom) onLoadMore()
+                    }
+
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
@@ -369,7 +404,8 @@ fun PaidTabContent(
     state: UiState<List<InvoiceDto>>,
     searchQuery: String,
     onReceiptClick: (InvoiceDto) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -401,7 +437,22 @@ fun PaidTabContent(
                         isRefreshing = false
                     }
                 ) {
+                    val listState = rememberLazyListState()
+                    val isAtBottom by remember {
+                        derivedStateOf {
+                            val layoutInfo = listState.layoutInfo
+                            val totalItems = layoutInfo.totalItemsCount
+                            val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+                            lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
+                        }
+                    }
+
+                    LaunchedEffect(isAtBottom) {
+                        if (isAtBottom) onLoadMore()
+                    }
+
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {

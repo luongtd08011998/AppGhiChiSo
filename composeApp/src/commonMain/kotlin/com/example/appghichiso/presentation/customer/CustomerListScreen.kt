@@ -283,7 +283,8 @@ fun CustomerListScreen(
                                     selectedInvoiceIds = selectedInvoiceIds,
                                     isPublishing = tvanActionState is TvanActionState.Loading,
                                     onPublishClick = { ids -> viewModel.publishSelectedTvan(ids) },
-                                    onRefresh = { viewModel.refresh() }
+                                    onRefresh = { viewModel.refresh() },
+                                    onLoadMore = { viewModel.loadMoreToPublish() }
                                 )
                             }
                             2 -> {
@@ -291,7 +292,8 @@ fun CustomerListScreen(
                                     state = debtState,
                                     searchQuery = searchQuery,
                                     onPayClick = { inv -> invoiceToPay = inv },
-                                    onRefresh = { viewModel.refresh() }
+                                    onRefresh = { viewModel.refresh() },
+                                    onLoadMore = { viewModel.loadMoreDebt() }
                                 )
                             }
                             3 -> {
@@ -299,7 +301,8 @@ fun CustomerListScreen(
                                     state = paidState,
                                     searchQuery = searchQuery,
                                     onReceiptClick = { inv -> viewModel.loadReceipt(inv.id) },
-                                    onRefresh = { viewModel.refresh() }
+                                    onRefresh = { viewModel.refresh() },
+                                    onLoadMore = { viewModel.loadMorePaid() }
                                 )
                             }
                         }

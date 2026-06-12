@@ -454,7 +454,7 @@ private fun SubmitButtons(
                 CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp,
                     color = MaterialTheme.colorScheme.onPrimary)
             } else {
-                Text("Lưu & Phát hành", style = MaterialTheme.typography.titleSmall,
+                Text("Phát hành", style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp, maxLines = 1)
             }
         }

@@ -30,24 +30,33 @@ class GetInvoiceStatusUseCase(private val tvanRepository: TvanRepository) {
 }
 
 class GetToPublishListUseCase(private val tvanRepository: TvanRepository) {
-    suspend operator fun invoke(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> =
-        withContext(Dispatchers.IO) {
-            tvanRepository.getToPublishList(yearMonth, roadCode, customerCode)
+    suspend operator fun invoke(yearMonth: String, roadCode: String, customerCode: String, page: Int = 0): Result<List<InvoiceDto>> {
+        return try {
+            tvanRepository.getToPublishList(yearMonth, roadCode, customerCode, page)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 }
 
 class GetDebtListUseCase(private val tvanRepository: TvanRepository) {
-    suspend operator fun invoke(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> =
-        withContext(Dispatchers.IO) {
-            tvanRepository.getDebtList(yearMonth, roadCode, customerCode)
+    suspend operator fun invoke(yearMonth: String, roadCode: String, customerCode: String, page: Int = 0): Result<List<InvoiceDto>> {
+        return try {
+            tvanRepository.getDebtList(yearMonth, roadCode, customerCode, page)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 }
 
 class GetPaidListUseCase(private val tvanRepository: TvanRepository) {
-    suspend operator fun invoke(yearMonth: String, roadCode: String, customerCode: String): Result<List<InvoiceDto>> =
-        withContext(Dispatchers.IO) {
-            tvanRepository.getPaidList(yearMonth, roadCode, customerCode)
+    suspend operator fun invoke(yearMonth: String, roadCode: String, customerCode: String, page: Int = 0): Result<List<InvoiceDto>> {
+        return try {
+            tvanRepository.getPaidList(yearMonth, roadCode, customerCode, page)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
+    }
 }
 
 class PublishTvanUseCase(private val tvanRepository: TvanRepository) {
