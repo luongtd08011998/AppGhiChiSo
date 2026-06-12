@@ -1,8 +1,11 @@
 package com.example.appghichiso.presentation.customer
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,8 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -32,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -113,9 +116,10 @@ fun CustomerListScreen(
                     Column {
                         Text(roadName, maxLines = 1, fontWeight = FontWeight.Bold)
                         Text(
-                            "${viewModel.currentMonth}/${viewModel.currentYear}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                            "${viewModel.currentMonth.toString().padStart(2, '0')}/${viewModel.currentYear}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 },
@@ -142,28 +146,35 @@ fun CustomerListScreen(
                 .padding(innerPadding)
         ) {
             /* ── Tabs Row ── */
-            TabRow(
-                selectedTabIndex = activeTab,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+            val tabTitles = listOf("Ghi chỉ số", "Chưa phát hành", "Nợ/Thu tiền", "Đã thanh toán")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val tabTitles = listOf("Ghi chỉ số", "Chưa phát hành", "Nợ/Thu tiền", "Đã thanh toán")
                 tabTitles.forEachIndexed { index, title ->
-                    Tab(
-                        selected = activeTab == index,
-                        onClick = {
+                    val isSelected = activeTab == index
+                    Surface(
+                        modifier = Modifier.weight(1f).clickable {
                             searchQuery = ""
                             viewModel.setActiveTab(index)
                         },
-                        text = {
-                            Text(
-                                title,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                fontWeight = if (activeTab == index) FontWeight.Bold else FontWeight.Medium
-                            )
-                        }
-                    )
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            title,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
 

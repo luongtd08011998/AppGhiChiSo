@@ -11,13 +11,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import coil3.compose.AsyncImage
 import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
+import com.example.appghichiso.utils.buildVietQrUrl
 
 @Composable
 fun InvoicePaperDialog(
@@ -73,7 +76,7 @@ fun InvoicePaperDialog(
                     val ym = invoice.yearMonth ?: ""
                     val formattedYm = if (ym.length == 6) "${ym.substring(4, 6)}/${ym.substring(0, 4)}" else ym
                     BillRow("Kỳ thanh toán", formattedYm)
-                    
+
                     BillRow("Thời gian SD", "")
                     BillRow("Chỉ số mới", "${invoice.newIndex}")
                     BillRow("Chỉ số cũ", "${invoice.oldIndex}")
@@ -93,6 +96,37 @@ fun InvoicePaperDialog(
                         "Ghi chú: Mời Quý khách hàng thanh toán trong thời hạn 7 ngày kể từ ngày gửi giấy báo. Hóa đơn điện tử phát hành tại http://toctienltd.vn.\nLiên hệ: 0254 3894894 - 0865379119",
                         color = Color.Red,
                         style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        "QUÉT MÃ QR ĐỂ THANH TOÁN",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        color = Color(0xFF1565C0)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val qrUrl = buildVietQrUrl(
+                        amount = invoice.totalAmount,
+                        custCode = invoice.custCode ?: "",
+                        yearMonth = invoice.yearMonth ?: "",
+                        invNumber = invoice.invNumber ?: ""
+                    )
+                    AsyncImage(
+                        model = qrUrl,
+                        contentDescription = "Mã QR thanh toán",
+                        modifier = Modifier
+                            .size(240.dp)
+                            .align(Alignment.CenterHorizontally),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Mở app ngân hàng → Quét mã QR",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
                 }
 
