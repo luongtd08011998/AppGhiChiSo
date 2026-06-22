@@ -258,7 +258,12 @@ fun CustomerTabContent(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 24.dp)
                     ) {
-                        itemsIndexed(filtered, key = { _, customer -> customer.customerCode }) { index, customer ->
+                        itemsIndexed(
+                            filtered,
+                            key = { _, customer ->
+                                "${customer.customerCode}-${customer.contractCode}"
+                            }
+                        ) { index, customer ->
                             val isRec = customer.isRecorded || isRecorded(customer.customerCode)
                             CustomerCard(
                                 index     = index,
