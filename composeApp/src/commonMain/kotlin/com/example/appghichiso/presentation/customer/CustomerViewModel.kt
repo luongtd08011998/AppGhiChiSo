@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 
 class CustomerViewModel(
     private val getCustomersUseCase: GetCustomersUseCase,
@@ -112,6 +114,12 @@ class CustomerViewModel(
     val isCustomersByRoadLoadingMore: StateFlow<Boolean> = _isCustomersByRoadLoadingMore.asStateFlow()
     private val currentCustomersByRoadList = mutableListOf<CustomerByRoad>()
 
+    // ── Background Pre-fetch Jobs ──
+    private var customerPrefetchJob: Job? = null
+    private var customersByRoadPrefetchJob: Job? = null
+    private var debtPrefetchJob: Job? = null
+    private var paidPrefetchJob: Job? = null
+
     val currentYear: Int get() = appStateHolder.billingYear.takeIf { it > 0 } ?: currentYear()
     val currentMonth: Int get() = appStateHolder.billingMonth.takeIf { it > 0 } ?: currentMonth()
 
@@ -140,6 +148,7 @@ class CustomerViewModel(
     private fun loadCustomersByRoad() {
         customersByRoadPage = 0
         currentCustomersByRoadList.clear()
+        customersByRoadPrefetchJob?.cancel()
         viewModelScope.launch {
             _customersByRoadState.value = UiState.Loading
             getCustomersByRoadUseCase(currentRoadCode, 0)
@@ -147,8 +156,62 @@ class CustomerViewModel(
                     maxCustomersByRoadPage = it.firstOrNull()?.numOfPages ?: 1
                     currentCustomersByRoadList.addAll(it)
                     _customersByRoadState.value = UiState.Success(currentCustomersByRoadList.toList())
+                    // Tải ngầm các trang còn lại sau khi trang 0 xong
+                    if (maxCustomersByRoadPage > 1) {
+                        startCustomersByRoadPrefetch()
+                    }
                 }
                 .onFailure { _customersByRoadState.value = UiState.Error(it.message ?: "Lỗi tải danh sách khách hàng") }
+        }
+    }
+
+    private fun startCustomersByRoadPrefetch() {
+        customersByRoadPrefetchJob?.cancel()
+        customersByRoadPrefetchJob = viewModelScope.launch {
+            for (page in 1 until maxCustomersByRoadPage) {
+                if (_isCustomersByRoadLoadingMore.value) {
+                    // User đang tải thủ công, chờ xong rồi tiếp
+                    while (_isCustomersByRoadLoadingMore.value) delay(100)
+                }
+                delay(300) // Nghỉ 300ms giữa mỗi trang để không làm nghẽn mạng
+                if (customersByRoadPage >= page) continue // User đã cuộn tới trang này rồi, bỏ qua
+                getCustomersByRoadUseCase(currentRoadCode, page)
+                    .onSuccess { items ->
+                        val newItems = items.filter { newItem ->
+                            currentCustomersByRoadList.none { it.id == newItem.id }
+                        }
+                        if (newItems.isNotEmpty()) {
+                            currentCustomersByRoadList.addAll(newItems)
+                            customersByRoadPage = page
+                            _customersByRoadState.value = UiState.Success(currentCustomersByRoadList.toList())
+                        }
+                    }
+            }
+        }
+    }
+
+    private fun startCustomerPrefetch() {
+        customerPrefetchJob?.cancel()
+        customerPrefetchJob = viewModelScope.launch {
+            for (page in 1 until maxCustomerPage) {
+                if (_isCustomerLoadingMore.value) {
+                    // User đang tải thủ công, chờ xong rồi tiếp
+                    while (_isCustomerLoadingMore.value) delay(100)
+                }
+                delay(300) // Nghỉ 300ms giữa mỗi trang để không làm nghẽn mạng
+                if (customerPage >= page) continue // User đã cuộn tới trang này rồi, bỏ qua
+                getCustomersUseCase(currentRoadCode, currentYear, currentMonth, page)
+                    .onSuccess { items ->
+                        val newItems = items.filter { newItem ->
+                            currentCustomerList.none { it.contractCode == newItem.contractCode }
+                        }
+                        if (newItems.isNotEmpty()) {
+                            currentCustomerList.addAll(newItems)
+                            customerPage = page
+                            _uiState.value = UiState.Success(currentCustomerList.toList())
+                        }
+                    }
+            }
         }
     }
 
@@ -161,12 +224,17 @@ class CustomerViewModel(
                     // Ghi Chỉ Số
                     customerPage = 0
                     currentCustomerList.clear()
+                    customerPrefetchJob?.cancel()
                     _uiState.value = UiState.Loading
                     getCustomersUseCase(currentRoadCode, currentYear, currentMonth, 0)
                         .onSuccess {
                             maxCustomerPage = it.firstOrNull()?.numOfPages ?: 1
                             currentCustomerList.addAll(it)
                             _uiState.value = UiState.Success(currentCustomerList.toList())
+                            // Tải ngầm các trang còn lại sau khi trang 0 xong
+                            if (maxCustomerPage > 1) {
+                                startCustomerPrefetch()
+                            }
                         }
                         .onFailure { _uiState.value = UiState.Error(it.message ?: "Lỗi tải danh sách khách hàng") }
                 }
@@ -188,6 +256,7 @@ class CustomerViewModel(
                     debtPageYm = 0
                     debtPageSys = 0
                     currentDebtList.clear()
+                    debtPrefetchJob?.cancel()
                     _debtState.value = UiState.Loading
                     val ymResult = getDebtListUseCase(ym, currentRoadCode, "", 0)
                     val systemYmResult = if (systemYm != ym) {
@@ -207,6 +276,10 @@ class CustomerViewModel(
                         }
                         currentDebtList.addAll((debtsYm + debtsSys).distinctBy { it.id })
                         _debtState.value = UiState.Success(currentDebtList.toList())
+                        // Tải ngầm các trang còn lại
+                        if (maxDebtPageYm > 1 || maxDebtPageSys > 1) {
+                            startDebtPrefetch(ym, systemYm)
+                        }
                     } else {
                         _debtState.value = UiState.Error(ymResult.exceptionOrNull()?.message ?: "Lỗi tải danh sách nợ")
                     }
@@ -216,6 +289,7 @@ class CustomerViewModel(
                     paidPageYm = 0
                     paidPageSys = 0
                     currentPaidList.clear()
+                    paidPrefetchJob?.cancel()
                     _paidState.value = UiState.Loading
                     val ymResult = getPaidListUseCase(ym, currentRoadCode, "", 0)
                     val systemYmResult = if (systemYm != ym) {
@@ -235,9 +309,75 @@ class CustomerViewModel(
                         }
                         currentPaidList.addAll((paidYm + paidSys).distinctBy { it.id })
                         _paidState.value = UiState.Success(currentPaidList.toList())
+                        // Tải ngầm các trang còn lại
+                        if (maxPaidPageYm > 1 || maxPaidPageSys > 1) {
+                            startPaidPrefetch(ym, systemYm)
+                        }
                     } else {
                         _paidState.value = UiState.Error(ymResult.exceptionOrNull()?.message ?: "Lỗi tải danh sách đã thanh toán")
                     }
+                }
+            }
+        }
+    }
+
+    private fun startDebtPrefetch(ym: String, systemYm: String) {
+        debtPrefetchJob?.cancel()
+        debtPrefetchJob = viewModelScope.launch {
+            val maxPage = maxOf(maxDebtPageYm, maxDebtPageSys)
+            for (page in 1 until maxPage) {
+                if (_isDebtLoadingMore.value) {
+                    while (_isDebtLoadingMore.value) delay(100)
+                }
+                delay(300)
+                val newItems = mutableListOf<InvoiceDto>()
+                if (page < maxDebtPageYm && debtPageYm < page) {
+                    getDebtListUseCase(ym, currentRoadCode, "", page)
+                        .onSuccess { newItems.addAll(it) }
+                }
+                if (page < maxDebtPageSys && debtPageSys < page && systemYm != ym) {
+                    getDebtListUseCase(systemYm, currentRoadCode, "", page)
+                        .onSuccess { newItems.addAll(it) }
+                }
+                val filtered = newItems.filter { newItem ->
+                    currentDebtList.none { it.id == newItem.id }
+                }
+                if (filtered.isNotEmpty()) {
+                    currentDebtList.addAll(filtered)
+                    if (page < maxDebtPageYm) debtPageYm = page
+                    if (page < maxDebtPageSys) debtPageSys = page
+                    _debtState.value = UiState.Success(currentDebtList.distinctBy { it.id })
+                }
+            }
+        }
+    }
+
+    private fun startPaidPrefetch(ym: String, systemYm: String) {
+        paidPrefetchJob?.cancel()
+        paidPrefetchJob = viewModelScope.launch {
+            val maxPage = maxOf(maxPaidPageYm, maxPaidPageSys)
+            for (page in 1 until maxPage) {
+                if (_isPaidLoadingMore.value) {
+                    while (_isPaidLoadingMore.value) delay(100)
+                }
+                delay(300)
+                val newItems = mutableListOf<InvoiceDto>()
+                if (page < maxPaidPageYm && paidPageYm < page) {
+                    getPaidListUseCase(ym, currentRoadCode, "", page)
+                        .onSuccess { newItems.addAll(it) }
+                }
+                if (page < maxPaidPageSys && paidPageSys < page && systemYm != ym) {
+                    getPaidListUseCase(systemYm, currentRoadCode, "", page)
+                        .onSuccess { newItems.addAll(it) }
+                }
+                val filtered = newItems.filter { newItem ->
+                    currentPaidList.none { it.id == newItem.id }
+                }
+                if (filtered.isNotEmpty()) {
+                    currentPaidList.addAll(filtered)
+                    if (page < maxPaidPageYm) paidPageYm = page
+                    if (page < maxPaidPageSys) paidPageSys = page
+                    _paidState.value = UiState.Success(currentPaidList.distinctBy { it.id })
                 }
             }
         }

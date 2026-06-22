@@ -8,6 +8,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +34,28 @@ fun InvoicePaperDialog(
     onPrint: () -> Unit,
     isLoading: Boolean
 ) {
+    var showConfirmPay by remember { mutableStateOf(false) }
+
+    if (showConfirmPay) {
+        AlertDialog(
+            onDismissRequest = { showConfirmPay = false },
+            title = { Text("Xác nhận thanh toán", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
+            text = { Text("Bạn có chắc chắn muốn thu tiền khách hàng này không?\n\nSố tiền: ${formatCurrency(invoice.totalAmount)}đ") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmPay = false
+                        onPayCash()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                ) { Text("Đồng ý", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmPay = false }) { Text("Hủy") }
+            }
+        )
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -139,7 +165,7 @@ fun InvoicePaperDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = onPayCash,
+                        onClick = { showConfirmPay = true },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         enabled = !isLoading,
                         shape = RoundedCornerShape(8.dp),
@@ -162,13 +188,15 @@ fun InvoicePaperDialog(
                         OutlinedButton(
                             onClick = onPrint,
                             modifier = Modifier.weight(1f).height(48.dp),
+                            enabled = !isLoading,
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text("In Giấy")
                         }
                         TextButton(
                             onClick = onDismiss,
-                            modifier = Modifier.weight(1f).height(48.dp)
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            enabled = !isLoading
                         ) {
                             Text("Đóng")
                         }

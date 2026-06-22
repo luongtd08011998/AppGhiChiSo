@@ -30,16 +30,12 @@ class TvanApiService(
     private val client: HttpClient,
     private val sessionManager: SessionManager
 ) {
-    private val credentials get(): String {
-        val email = sessionManager.email
-        val username = if (email.contains("@")) email else "$email@toctienltd.vn"
-        return Base64.encode("$username:${sessionManager.password}".encodeToByteArray())
-    }
+
 
     suspend fun getToPublishList(ym: String, rc: String, cc: String, pn: Int = 0): List<InvoiceDto> {
         val timestamp = currentTimestamp()
         val response = client.get("$TVAN_URL/to_publish_list?ym=$ym&rc=$rc&cc=$cc&pn=$pn&t=$timestamp") {
-            header("Authorization", "Basic $credentials")
+
             header("Cache-Control", "no-cache, no-store, must-revalidate")
             header("Pragma", "no-cache")
         }
@@ -51,7 +47,7 @@ class TvanApiService(
     suspend fun getDebtList(ym: String, rc: String, cc: String, pn: Int = 0): List<InvoiceDto> {
         val timestamp = currentTimestamp()
         val response = client.get("$TVAN_URL/debt_list?ym=$ym&rc=$rc&cc=$cc&pn=$pn&t=$timestamp") {
-            header("Authorization", "Basic $credentials")
+
             header("Cache-Control", "no-cache, no-store, must-revalidate")
             header("Pragma", "no-cache")
         }
@@ -63,7 +59,7 @@ class TvanApiService(
     suspend fun publishToTvan(ids: List<Long>): TvanPublishResponse {
         val jsonArray = ids.joinToString(prefix = "[", postfix = "]")
         val response = client.post("$TVAN_URL/publish_to_tvan") {
-            header("Authorization", "Basic $credentials")
+
             contentType(ContentType.Application.Json)
             setBody(jsonArray)
         }
@@ -78,7 +74,7 @@ class TvanApiService(
     suspend fun payCash(id: Long): PayCashResponse {
         // Tài liệu: curl -d "781457" ... truyền raw string
         val response = client.post("$TVAN_URL/pay_cash") {
-            header("Authorization", "Basic $credentials")
+
             contentType(ContentType.Application.Json)
             setBody(id.toString())
         }
@@ -93,7 +89,7 @@ class TvanApiService(
     suspend fun getPaidList(ym: String, rc: String, cc: String, pn: Int = 0): List<InvoiceDto> {
         val timestamp = currentTimestamp()
         val response = client.get("$TVAN_URL/paid_list?ym=$ym&rc=$rc&cc=$cc&pn=$pn&t=$timestamp") {
-            header("Authorization", "Basic $credentials")
+
             header("Cache-Control", "no-cache, no-store, must-revalidate")
             header("Pragma", "no-cache")
         }
@@ -104,7 +100,7 @@ class TvanApiService(
 
     suspend fun getReceipt(id: Long): ReceiptDto? {
         val response = client.get("$TVAN_URL/receipt/$id") {
-            header("Authorization", "Basic $credentials")
+
         }
         return parseReceipt(response.bodyAsText())
     }

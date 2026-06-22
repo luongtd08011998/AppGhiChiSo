@@ -361,6 +361,17 @@ class MeterReadingViewModel(
                     publishTvanUseCase(listOf(activeInvoiceId)).fold(
                         onSuccess = { res ->
                             addTvanLog("Tự động phát hành TVAN thành công: ${res.retMsg}")
+                            
+                            val ym = "$year${month.toString().padStart(2, '0')}"
+                            val statusResult = getInvoiceStatusUseCase(ym, "", customerCode)
+                            if (statusResult.isSuccess) {
+                                val (toPublish, debts) = statusResult.getOrThrow()
+                                val updatedInvoice = debts.find { it.id == activeInvoiceId } ?: toPublish.find { it.id == activeInvoiceId }
+                                if (updatedInvoice != null) {
+                                    _currentInvoice.value = updatedInvoice
+                                }
+                            }
+                            
                             _tvanActionState.value = TvanActionState.PublishSuccess(res.result, res.retMsg)
                             _isTvanCreated.value = true
                             _submitState.value = SubmitState.Success
@@ -386,10 +397,21 @@ class MeterReadingViewModel(
     
     fun publishTvan() {
         val invoiceId = _currentInvoice.value?.id ?: return
+        val customerCode = _currentInvoice.value?.custCode ?: return
+        val ym = _currentInvoice.value?.yearMonth ?: return
         viewModelScope.launch {
             _tvanActionState.value = TvanActionState.Loading
             publishTvanUseCase(listOf(invoiceId)).fold(
                 onSuccess = { res ->
+                    val statusResult = getInvoiceStatusUseCase(ym, "", customerCode)
+                    if (statusResult.isSuccess) {
+                        val (toPublish, debts) = statusResult.getOrThrow()
+                        val updatedInvoice = debts.find { it.id == invoiceId } ?: toPublish.find { it.id == invoiceId }
+                        if (updatedInvoice != null) {
+                            _currentInvoice.value = updatedInvoice
+                        }
+                    }
+
                     _tvanActionState.value = TvanActionState.PublishSuccess(res.result, res.retMsg)
                     _isTvanCreated.value = true
                 },

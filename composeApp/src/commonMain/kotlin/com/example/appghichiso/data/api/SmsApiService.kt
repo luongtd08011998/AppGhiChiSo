@@ -35,9 +35,7 @@ class SmsApiService(
     }
 
     suspend fun updateSms(customerCode: String, sms: String): SmsUpdateResponse {
-        val credentials = Base64.encode("${sessionManager.email}:${sessionManager.password}".encodeToByteArray())
         val response: HttpResponse = client.post("$SMS_URL/cm-portlet/api/customer/sms") {
-            header("Authorization", "Basic $credentials")
             contentType(ContentType.Application.Json)
             setBody("""{"code":"$customerCode","sms":"$sms"}""")
         }
@@ -51,9 +49,7 @@ class SmsApiService(
     }
 
     suspend fun updatePhone(customerCode: String, phone: String): SmsUpdateResponse {
-        val credentials = Base64.encode("${sessionManager.email}:${sessionManager.password}".encodeToByteArray())
         val response: HttpResponse = client.post("$SMS_URL/cm-portlet/api/customer/phone") {
-            header("Authorization", "Basic $credentials")
             contentType(ContentType.Application.Json)
             setBody("""{"code":"$customerCode","phone":"$phone"}""")
         }
