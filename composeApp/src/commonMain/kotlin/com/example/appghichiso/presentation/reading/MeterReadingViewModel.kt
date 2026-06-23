@@ -55,6 +55,8 @@ sealed interface TvanActionState {
     data class PaySuccess(val receiptId: String, val message: String) : TvanActionState
     data class ReceiptLoaded(val receipt: ReceiptDto) : TvanActionState
     data class Error(val message: String) : TvanActionState
+    /** Timeout khi phát hành hàng loạt — server có thể đã xử lý xong nhưng response về trễ */
+    data object PublishTimeout : TvanActionState
 }
 
 class MeterReadingViewModel(

@@ -518,7 +518,16 @@ class CustomerViewModel(
                     loadInvoiceSubTab(1)
                 },
                 onFailure = { err ->
-                    _tvanActionState.value = TvanActionState.Error(err.message ?: "Lỗi tạo hóa đơn TVAN")
+                    val msg = err.message ?: ""
+                    if (msg.contains("timeout", ignoreCase = true) ||
+                        msg.contains("timed out", ignoreCase = true) ||
+                        msg.contains("socket", ignoreCase = true)) {
+                        // Timeout — server có thể đã xử lý xong, tự refresh để kiểm tra
+                        _tvanActionState.value = TvanActionState.PublishTimeout
+                        loadInvoiceSubTab(1)
+                    } else {
+                        _tvanActionState.value = TvanActionState.Error(msg.ifBlank { "Lỗi tạo hóa đơn TVAN" })
+                    }
                 }
             )
         }

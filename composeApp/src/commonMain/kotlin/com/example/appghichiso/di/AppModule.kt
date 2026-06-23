@@ -78,9 +78,11 @@ private fun networkModule() = module {
             }
             install(HttpTimeout) {
                 // Tăng timeout để tránh "Socket timeout has expired" khi server chậm
+                // connectTimeout: 30s — đủ để thiết lập kết nối
+                // socket/requestTimeout: 300s (5 phút) — đủ cho phát hành nhiều hóa đơn TVAN cùng lúc
                 connectTimeoutMillis = 30_000
-                socketTimeoutMillis = 120_000
-                requestTimeoutMillis = 120_000
+                socketTimeoutMillis  = 300_000
+                requestTimeoutMillis = 300_000
             }
             // Intercept 401 — deactivate session and notify UI
             HttpResponseValidator {

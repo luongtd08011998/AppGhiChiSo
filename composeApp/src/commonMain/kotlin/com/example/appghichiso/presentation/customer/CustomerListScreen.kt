@@ -83,6 +83,7 @@ fun CustomerListScreen(
     var showReceiptDialog by remember { mutableStateOf(false) }
     var showTvanErrorDialog by remember { mutableStateOf<String?>(null) }
     var showPublishSuccessDialog by remember { mutableStateOf<String?>(null) }
+    var showPublishTimeoutDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(roadCode) {
         viewModel.loadCustomers(roadCode)
@@ -108,8 +109,17 @@ fun CustomerListScreen(
             is TvanActionState.ReceiptLoaded -> {
                 showReceiptDialog = true
             }
+            is TvanActionState.PublishTimeout -> {
+                // Timeout — server có thể đã xử lý xong, danh sách đã được refresh
+                showPublishTimeoutDialog = true
+                selectedInvoiceIds.clear()
+                viewModel.resetTvanActionState()
+            }
             is TvanActionState.Error -> {
-                showTvanErrorDialog = state.message
+                // Chỉ hiện dialog lỗi ở tab Chưa PH (sub-tab index 1)
+                if (activeInvoiceSubTab == 1) {
+                    showTvanErrorDialog = state.message
+                }
                 viewModel.resetTvanActionState()
             }
             else -> {}
@@ -360,6 +370,13 @@ fun CustomerListScreen(
             PublishSuccessDialog(
                 message = showPublishSuccessDialog!!,
                 onDismiss = { showPublishSuccessDialog = null }
+            )
+        }
+
+        /* ── Dialog Timeout Phát Hành ── */
+        if (showPublishTimeoutDialog) {
+            PublishTimeoutDialog(
+                onDismiss = { showPublishTimeoutDialog = false }
             )
         }
     }
