@@ -424,7 +424,6 @@ private fun SubmitButtons(
     onSubmit: (publishImmediate: Boolean) -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        /*
         Button(
             onClick  = { onSubmit(false) },
             enabled  = newIndex != null && newIndex >= customer.previousIndex && submitState !is SubmitState.Loading,
@@ -442,7 +441,6 @@ private fun SubmitButtons(
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
             }
         }
-        */
 
         Button(
             onClick  = { onSubmit(true) },
@@ -450,7 +448,7 @@ private fun SubmitButtons(
                     && submitState !is SubmitState.Loading && invoiceId > 0L,
             shape    = RoundedCornerShape(16.dp),
             colors   = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-            modifier = Modifier.fillMaxWidth().height(56.dp)
+            modifier = Modifier.weight(1f).height(56.dp)
         ) {
             if (submitState is SubmitState.Loading && isPublishImmediately) {
                 CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp,
