@@ -14,7 +14,7 @@ import io.ktor.http.encodeURLParameter
 fun buildVietQrUrl(amount: Double, custCode: String, yearMonth: String, invNumber: String): String {
     val bankId = "970415" // VietinBank
     val accountNo = "113601145666"
-    val template = "tY8MBU9"
+    val template = "qr_only"
     val accountName = "CONG TY TNHH CAP NUOC TOC TIEN"
 
     val amountLong = amount.toLong()

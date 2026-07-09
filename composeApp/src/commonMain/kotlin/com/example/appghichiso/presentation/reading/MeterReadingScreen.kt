@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.appghichiso.di.AppStateHolder
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.example.appghichiso.printer.PrinterHub
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -192,7 +193,7 @@ fun MeterReadingScreen(
                 onSubmitSuccess()
             },
             onPayCash = { viewModel.payCash() },
-            onPrint = { /* TODO */ },
+            onPrint = { PrinterHub.instance.requestPrintInvoice(currentInvoice!!) },
             isLoading = tvanActionState is TvanActionState.Loading
         )
     }
@@ -200,12 +201,14 @@ fun MeterReadingScreen(
     if (showReceiptDialog && tvanActionState is TvanActionState.ReceiptLoaded) {
         ReceiptDialog(
             receipt = (tvanActionState as TvanActionState.ReceiptLoaded).receipt,
-            onDismiss = { 
-                showReceiptDialog = false 
+            onDismiss = {
+                showReceiptDialog = false
                 viewModel.resetTvanActionState()
                 onSubmitSuccess()
             },
-            onPrint = { /* TODO */ }
+            onPrint = {
+                PrinterHub.instance.requestPrintReceipt((tvanActionState as TvanActionState.ReceiptLoaded).receipt)
+            }
         )
     }
 

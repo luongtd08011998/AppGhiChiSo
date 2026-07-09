@@ -32,6 +32,8 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.koin.android)
+            // Thermal printer (Bluetooth ESC/POS) — Xprinter XP-P504A
+            implementation(libs.escpos.thermalPrinter)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)

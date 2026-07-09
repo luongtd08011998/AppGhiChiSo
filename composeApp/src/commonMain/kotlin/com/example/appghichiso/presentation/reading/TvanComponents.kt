@@ -24,6 +24,8 @@ import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
+import com.example.appghichiso.presentation.printer.InvoicePrintPreviewDialog
+import com.example.appghichiso.presentation.printer.ReceiptPrintPreviewDialog
 import com.example.appghichiso.utils.buildVietQrUrl
 
 @Composable
@@ -35,6 +37,11 @@ fun InvoicePaperDialog(
     isLoading: Boolean
 ) {
     var showConfirmPay by remember { mutableStateOf(false) }
+    var showPreview by remember { mutableStateOf(false) }
+
+    if (showPreview) {
+        InvoicePrintPreviewDialog(invoice = invoice, onDismiss = { showPreview = false })
+    }
 
     if (showConfirmPay) {
         AlertDialog(
@@ -79,9 +86,9 @@ fun InvoicePaperDialog(
                 ) {
                     Text("TẬP ĐOÀN HẢI CHÂU VIỆT NAM", fontWeight = FontWeight.Bold, color = Color.Black, style = MaterialTheme.typography.bodyMedium)
                     Text("CÔNG TY TNHH CẤP NƯỚC TÓC TIÊN", fontWeight = FontWeight.Bold, color = Color.Red, style = MaterialTheme.typography.bodyMedium)
-                    Text("Địa chỉ: Ấp 6, xã Châu Pha, TP Hồ Chí Minh", color = Color.Black, style = MaterialTheme.typography.bodySmall)
+                    Text("Địa chỉ: Ấp Tóc Tiên 1, xã Châu Pha, TP Hồ Chí Minh", color = Color.Black, style = MaterialTheme.typography.bodySmall)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Điện thoại: 0254 389 4894 - 0865379119", color = Color.Black, style = MaterialTheme.typography.bodySmall)
+                        Text("Điện thoại: 02543 894 894 - 0865379119", color = Color.Black, style = MaterialTheme.typography.bodySmall)
                         Text("Số: ${invoice.invNumber ?: ".........."}", color = Color.Black, style = MaterialTheme.typography.bodyMedium)
                     }
                     
@@ -185,13 +192,22 @@ fun InvoicePaperDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedButton(
+                    OutlinedButton(
                             onClick = onPrint,
                             modifier = Modifier.weight(1f).height(48.dp),
                             enabled = !isLoading,
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text("In Giấy")
+                        }
+                        OutlinedButton(
+                            onClick = { showPreview = true },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1565C0))
+                        ) {
+                            Text("Xem trước")
                         }
                         TextButton(
                             onClick = onDismiss,
@@ -248,6 +264,11 @@ fun ReceiptDialog(
     onDismiss: () -> Unit,
     onPrint: () -> Unit
 ) {
+    var showPreview by remember { mutableStateOf(false) }
+
+    if (showPreview) {
+        ReceiptPrintPreviewDialog(receipt = receipt, onDismiss = { showPreview = false })
+    }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -272,7 +293,7 @@ fun ReceiptDialog(
                     // Header
                     Text("TẬP ĐOÀN HẢI CHÂU VIỆT NAM", fontWeight = FontWeight.Bold, color = Color.Black, style = MaterialTheme.typography.bodyMedium)
                     Text("CÔNG TY TNHH CẤP NƯỚC TÓC TIÊN", fontWeight = FontWeight.Bold, color = Color.Red, style = MaterialTheme.typography.bodyMedium)
-                    Text("Địa chỉ: Ấp 6, xã Châu Pha, TP Hồ Chí Minh", color = Color.Black, style = MaterialTheme.typography.bodySmall)
+                    Text("Địa chỉ: Ấp Tóc Tiên 1, xã Châu Pha, TP Hồ Chí Minh", color = Color.Black, style = MaterialTheme.typography.bodySmall)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Điện thoại: 0254 389 4894", color = Color.Black, style = MaterialTheme.typography.bodySmall)
                         Text("Số: ${receipt.invNumber ?: ".........."}", color = Color.Black, style = MaterialTheme.typography.bodyMedium)
@@ -407,6 +428,14 @@ fun ReceiptDialog(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("In Biên Nhận")
+                    }
+                    OutlinedButton(
+                        onClick = { showPreview = true },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1565C0))
+                    ) {
+                        Text("Xem trước")
                     }
                     OutlinedButton(
                         onClick = onDismiss,

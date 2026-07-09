@@ -50,6 +50,7 @@ import com.example.appghichiso.ui.theme.OceanBlue
 import com.example.appghichiso.ui.theme.OceanBlueDark
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import com.example.appghichiso.printer.PrinterHub
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -340,7 +341,7 @@ fun CustomerListScreen(
                 invoice = invoiceToPay!!,
                 onDismiss = { if (!isLoading) invoiceToPay = null },
                 onPayCash = { viewModel.payCashForInvoice(invoiceToPay!!.id) },
-                onPrint = { /* Dummy */ },
+                onPrint = { PrinterHub.instance.requestPrintInvoice(invoiceToPay!!) },
                 isLoading = isLoading
             )
         }
@@ -353,7 +354,9 @@ fun CustomerListScreen(
                     showReceiptDialog = false
                     viewModel.resetTvanActionState()
                 },
-                onPrint = { /* Dummy */ }
+                onPrint = {
+                    PrinterHub.instance.requestPrintReceipt((tvanActionState as TvanActionState.ReceiptLoaded).receipt)
+                }
             )
         }
 
