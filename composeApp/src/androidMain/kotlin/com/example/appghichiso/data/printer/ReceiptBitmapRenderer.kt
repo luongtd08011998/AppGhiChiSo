@@ -9,6 +9,7 @@ import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.utils.formatCurrencyForPrint
 import com.example.appghichiso.utils.getCurrentDateString
+import com.example.appghichiso.utils.formatApiDate
 
 /**
  * Chiều rộng in thực tế: 48mm @ 203dpi = 384px.
@@ -16,13 +17,13 @@ import com.example.appghichiso.utils.getCurrentDateString
  * SMALL=22px(2.7mm), BODY=26px(3.2mm), HEAD=28px(3.5mm), TITLE=38px(4.7mm)
  */
 private const val PRINT_WIDTH_PX = 384
-private const val PADDING = 8
+private const val PADDING = 6
 
 // Font sizes tương đương mm thực tế trên giấy 203dpi
-private const val FS_SMALL  = 20f   // ~2.5mm
-private const val FS_BODY   = 24f   // ~3.0mm
-private const val FS_HEAD   = 24f   // ~3.0mm bold
-private const val FS_TITLE  = 34f   // ~4.2mm bold
+private const val FS_SMALL  = 19f   // ~2.4mm
+private const val FS_BODY   = 22f   // ~2.7mm
+private const val FS_HEAD   = 21f   // ~2.6mm bold
+private const val FS_TITLE  = 32f   // ~4.0mm bold
 
 /**
  * Vẽ chứng từ thành [Bitmap] trắng-đen để in (ESC/POS raster). Tiếng Việt có dấu được đảm bảo
@@ -38,7 +39,7 @@ object ReceiptBitmapRenderer {
             add(Line("Ấp Tóc Tiên 1, xã Châu Pha, TP Hồ Chí Minh", Align.CENTER, Size.SMALL))
             add(Line("ĐT: 02543 894 894 - 0865379119", Align.CENTER, Size.SMALL))
             addBlank()
-            add(Line("Số: ${invoice.invNumber ?: ".........."}", Align.CENTER, Size.BODY, bold = true))
+            add(Line("Hóa đơn: ${invoice.invNumber ?: ".........."}", Align.CENTER, Size.BODY, bold = true))
             addBlank()
             add(Line("GIẤY BÁO TIỀN NƯỚC", Align.CENTER, Size.TITLE, bold = true))
             addBlank()
@@ -59,13 +60,19 @@ object ReceiptBitmapRenderer {
             invoice.empPhone?.takeIf { it.isNotBlank() }?.let { addKv("ĐT thu ngân", it) }
             addBlank()
             add(Line("Thanh toán trong 7 ngày kể từ ngày gửi.", Align.LEFT, Size.SMALL))
-            add(Line("HĐĐT: http://toctienltd.vn", Align.LEFT, Size.SMALL))
-            if (qrBitmap != null) {
-                addBlank()
-                add(Line("QUÉT MÃ QR ĐỂ THANH TOÁN", Align.CENTER, Size.BODY, bold = true))
-                addQr()
-                add(Line("Mở app ngân hàng → Quét mã QR", Align.CENTER, Size.SMALL))
-            }
+            add(Line("Tra cứu HĐĐT: http://toctienltd.vn", Align.LEFT, Size.SMALL))
+            addBlank()
+            add(Line("THANH TOÁN TRỰC TUYẾN", Align.CENTER, Size.BODY, bold = true))
+            add(Line("Bước 1: Mở app ngân hàng hoặc ví điện tử của bạn.", Align.LEFT, Size.BODY))
+            add(Line("Bước 2: Chọn mục \"Thanh toán hóa đơn - Nước\".", Align.LEFT, Size.BODY))
+            add(Line("Bước 3: Tìm từ khóa \"Cấp nước Tóc Tiên\" và nhập mã \"${invoice.custCode ?: ""}\" để thanh toán.", Align.LEFT, Size.BODY))
+            // TODO: tạm ẩn mã QR giấy báo tiền nước
+//            if (qrBitmap != null) {
+//                addBlank()
+//                add(Line("HOẶC QUÉT MÃ QR", Align.CENTER, Size.BODY, bold = true))
+//                addQr()
+//                add(Line("Mở app ngân hàng → Quét mã QR", Align.CENTER, Size.SMALL))
+//            }
         }
         return composeToBitmap(lines, qrBitmap)
     }
@@ -78,7 +85,7 @@ object ReceiptBitmapRenderer {
             add(Line("Ấp Tóc Tiên 1, xã Châu Pha, TP Hồ Chí Minh", Align.CENTER, Size.SMALL))
             add(Line("ĐT: 02543 894 894", Align.CENTER, Size.SMALL))
             addBlank()
-            add(Line("Số: ${receipt.invNumber ?: ".........."}", Align.CENTER, Size.BODY, bold = true))
+            add(Line("Hóa đơn: ${receipt.invNumber ?: ".........."}", Align.CENTER, Size.BODY, bold = true))
             addBlank()
             add(Line("BIÊN NHẬN THANH TOÁN TIỀN NƯỚC", Align.CENTER, Size.HEAD, bold = true))
             add(Line("(Liên 2: Giao khách hàng)", Align.CENTER, Size.SMALL))
@@ -88,8 +95,8 @@ object ReceiptBitmapRenderer {
             addKv("Mã KH", receipt.custCode)
             receipt.custTaxCode?.takeIf { it.isNotBlank() }?.let { addKv("Mã số thuế", it) }
             if (receipt.numOfHouseHold > 1) addKv("Số hộ SD", "${receipt.numOfHouseHold}")
-            addKv("Từ ngày", receipt.timeToUsedFrom)
-            addKv("Đến ngày", receipt.timeToUsedTo)
+            receipt.paymentLineNum?.takeIf { it.isNotBlank() }?.let { addKv("Phiếu thu", it) }
+            receipt.paymentLineDate?.takeIf { it.isNotBlank() }?.let { addKv("Ngày phiếu thu", formatApiDate(it)) }
             receipt.period.takeIf { it.isNotBlank() }?.let { addKv("Kỳ", it) }
             addBlank()
             // Bảng chỉ số (3 cột)
@@ -110,11 +117,30 @@ object ReceiptBitmapRenderer {
             addKv("Phí BVMT (10%)", receipt.envFee)
             addKv("TỔNG THANH TOÁN", receipt.totalAmount, bold = true)
             receipt.totalAmountInWord.takeIf { it.isNotBlank() }?.let { addKv("Bằng chữ", it, small = true) }
-            receipt.lookupCode.takeIf { it.isNotBlank() }?.let { addKv("Mã tra cứu", it) }
             addBlank()
             addBlank()
-            add(Line("Người nộp tiền          Thu ngân", Align.CENTER, Size.SMALL))
-            add(Line("(Ký, họ tên)            (Ký, họ tên)", Align.CENTER, Size.SMALL))
+            // Phần ký tên — chuẩn biên nhận Việt Nam
+            add(SigRow(
+                left  = "Người nộp tiền",
+                right = "Thu ngân"
+            ))
+            addBlank()
+            addBlank()
+            addBlank()
+            addBlank()
+            addBlank()
+            addBlank()
+            addBlank()
+            addBlank() // Tổng cộng 8 blank = 80px khoảng trống ký
+            addBlank()
+            add(SigRow(
+                left  = "(Ký, họ tên)",
+                right = if (receipt.empName.isNotBlank()) receipt.empName else "(Ký, họ tên)",
+                rightBold = receipt.empName.isNotBlank()
+            ))
+            addBlank()
+            add(Line("Cảm ơn Quý khách đã hoàn tất thanh toán tiền nước.", Align.CENTER, Size.SMALL, bold = true))
+            add(Line("Công ty TNHH Cấp nước Tóc Tiên hân hạnh được phục vụ Quý khách!", Align.CENTER, Size.SMALL, bold = true))
         }
         return composeToBitmap(lines, null)
     }
@@ -160,13 +186,13 @@ object ReceiptBitmapRenderer {
             height += when (item) {
                 is Line   -> {
                     val p = when (item.size) {
-                        Size.SMALL -> paintSmall
+                        Size.SMALL -> if (item.bold) basePaint(FS_SMALL, bold = true) else paintSmall
                         Size.HEAD -> paintHead
                         Size.TITLE -> paintTitle
                         Size.BODY -> if (item.bold) paintHead else paintBody
                     }
                     val w = p.measureText(item.text)
-                    val avail = contentWidth.coerceAtLeast(1)
+                    val avail = (contentWidth - item.indent * 2).coerceAtLeast(1f)
                     val lines = kotlin.math.ceil((w / avail).toDouble()).toInt().coerceAtLeast(1)
                     lines * (p.textSize + 6).toInt() + 6
                 }
@@ -179,6 +205,7 @@ object ReceiptBitmapRenderer {
                     estimatedLines * (FS_BODY + 6).toInt() + 6
                 }
                 is Row3   -> (FS_SMALL + 8).toInt()
+                is SigRow -> (FS_SMALL + 8).toInt()
                 Blank     -> 10
                 Qr        -> qrSize + 16
             }
@@ -194,14 +221,14 @@ object ReceiptBitmapRenderer {
             when (item) {
                 is Line -> {
                     val p = when (item.size) {
-                        Size.SMALL -> paintSmall
+                        Size.SMALL -> if (item.bold) basePaint(FS_SMALL, bold = true) else paintSmall
                         Size.HEAD -> paintHead
                         Size.TITLE -> paintTitle
                         Size.BODY -> if (item.bold) paintHead else paintBody
                     }
                     paintSetColor(p, item)
                     val baseline = y.toFloat()
-                    val nextY = drawWrappedText(canvas, item.text, PADDING.toFloat(), (PRINT_WIDTH_PX - PADDING).toFloat(), baseline, p, item.align)
+                    val nextY = drawWrappedText(canvas, item.text, PADDING.toFloat() + item.indent, (PRINT_WIDTH_PX - PADDING).toFloat() - item.indent, baseline, p, item.align)
                     y = nextY.toInt() + 4
                 }
                 is KvLine -> {
@@ -222,6 +249,20 @@ object ReceiptBitmapRenderer {
                     drawCentered(canvas, item.a, x0, baseline, p)
                     drawCentered(canvas, item.b, x1, baseline, p)
                     drawCentered(canvas, item.c, x2, baseline, p)
+                    y += (FS_SMALL + 8).toInt()
+                }
+                is SigRow -> {
+                    // Chia đôi trang: trái / phải
+                    val midX = PRINT_WIDTH_PX / 2f
+                    val baseline = y.toFloat()
+                    val pL = basePaint(FS_SMALL, item.leftBold)
+                    val pR = basePaint(FS_SMALL, item.rightBold)
+                    // Vẽ phần trái: căn giữa nửa trái
+                    val leftCenterX = PADDING + (midX - PADDING) / 2f
+                    drawCentered(canvas, item.left, leftCenterX, baseline, pL)
+                    // Vẽ phần phải: căn giữa nửa phải
+                    val rightCenterX = midX + (PRINT_WIDTH_PX - PADDING - midX) / 2f
+                    drawCentered(canvas, item.right, rightCenterX, baseline, pR)
                     y += (FS_SMALL + 8).toInt()
                 }
                 Blank -> y += 10
@@ -261,21 +302,30 @@ object ReceiptBitmapRenderer {
                 line = test
             } else {
                 if (line.isNotEmpty()) {
-                    if (align == Align.CENTER) drawCentered(canvas, line, startX + maxW / 2f, curY, paint)
-                    else canvas.drawText(line, startX, curY, paint)
+                    when (align) {
+                        Align.CENTER    -> drawCentered(canvas, line, startX + maxW / 2f, curY, paint)
+                        Align.RIGHT_COL -> drawCentered(canvas, line, startX + maxW * 3f / 4f, curY, paint)
+                        Align.LEFT      -> canvas.drawText(line, startX, curY, paint)
+                    }
                     curY += paint.textSize + 4
                     line = word
                 } else {
                     // từ quá dài, vẽ luôn
-                    if (align == Align.CENTER) drawCentered(canvas, word, startX + maxW / 2f, curY, paint)
-                    else canvas.drawText(word, startX, curY, paint)
+                    when (align) {
+                        Align.CENTER    -> drawCentered(canvas, word, startX + maxW / 2f, curY, paint)
+                        Align.RIGHT_COL -> drawCentered(canvas, word, startX + maxW * 3f / 4f, curY, paint)
+                        Align.LEFT      -> canvas.drawText(word, startX, curY, paint)
+                    }
                     curY += paint.textSize + 4
                 }
             }
         }
         if (line.isNotEmpty()) {
-            if (align == Align.CENTER) drawCentered(canvas, line, startX + maxW / 2f, curY, paint)
-            else canvas.drawText(line, startX, curY, paint)
+            when (align) {
+                Align.CENTER    -> drawCentered(canvas, line, startX + maxW / 2f, curY, paint)
+                Align.RIGHT_COL -> drawCentered(canvas, line, startX + maxW * 3f / 4f, curY, paint)
+                Align.LEFT      -> canvas.drawText(line, startX, curY, paint)
+            }
             curY += paint.textSize + 4
         }
         return curY
@@ -325,12 +375,18 @@ object ReceiptBitmapRenderer {
 }
 
 // ---- model nội bộ cho layout ----
-private enum class Align { LEFT, CENTER }
+private enum class Align { LEFT, CENTER, RIGHT_COL }
 private enum class Size { SMALL, BODY, HEAD, TITLE }
 
 private sealed interface Drawable
-private data class Line(val text: String, val align: Align, val size: Size, val bold: Boolean = false) : Drawable
+private data class Line(val text: String, val align: Align, val size: Size, val bold: Boolean = false, val indent: Float = 0f) : Drawable
 private data class KvLine(val label: String, val value: String, val bold: Boolean, val small: Boolean) : Drawable
 private data class Row3(val a: String, val b: String, val c: String, val header: Boolean = false) : Drawable
 private data object Blank : Drawable
+private data class SigRow(
+    val left: String,
+    val right: String,
+    val leftBold: Boolean = false,
+    val rightBold: Boolean = false
+) : Drawable
 private data object Qr : Drawable

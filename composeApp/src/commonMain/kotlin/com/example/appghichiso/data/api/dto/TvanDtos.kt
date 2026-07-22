@@ -15,7 +15,9 @@ data class InvoiceDto(
     val oldIndex: Long,
     val newIndex: Long,
     val empPhone: String? = null,
-    val numOfPages: Int? = null
+    val numOfPages: Int? = null,
+    @kotlinx.serialization.SerialName("LookupCode")
+    val lookupCode: String? = null
 )
 
 @Serializable
@@ -41,8 +43,6 @@ data class ReceiptDto(
     val custAddress: String = "",
     val custTaxCode: String? = null,
     val numOfHouseHold: Int = 1,
-    val timeToUsedFrom: String = "",
-    val timeToUsedTo: String = "",
     val period: String = "",
     val oldIndex: Long = 0,
     val newIndex: Long = 0,
@@ -63,5 +63,10 @@ data class ReceiptDto(
     val envFee: String = "",
     val totalAmount: String = "",
     val totalAmountInWord: String = "",
-    val lookupCode: String = ""
+    val lookupCode: String = "",
+    val paymentLineNum: String? = null,
+    val paymentLineDate: String? = null,
+    /** Tên thu ngân — không serialize từ API, được gán thủ công từ session sau khi load */
+    @kotlinx.serialization.Transient
+    val empName: String = ""
 )

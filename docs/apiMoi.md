@@ -200,6 +200,8 @@ envFee	String	Phí BVMT (10%)
 totalAmount	String	Tổng số tiền thanh toán
 totalAmountInWord	String	Bằng chữ (Tổng tiền thanh toán)
 lookupCode	String	Mã tra cứu
+paymentLineNum	String	Số phiếu thu
+paymentLineDate	String	Ngày tạo phiếu thu (YYYYMMDD)
 
 Ví dụ:
 curl "http://toctienltd.vn/cm-portlet/api/receipt/781457"

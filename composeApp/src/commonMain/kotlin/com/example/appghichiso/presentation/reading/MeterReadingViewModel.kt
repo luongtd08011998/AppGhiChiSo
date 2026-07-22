@@ -451,7 +451,11 @@ class MeterReadingViewModel(
             _tvanActionState.value = TvanActionState.Loading
             getReceiptUseCase(invoiceId).fold(
                 onSuccess = { receipt ->
-                    _tvanActionState.value = TvanActionState.ReceiptLoaded(receipt)
+                    // Chuyển username → họ tên đầy đủ của thu ngân
+                    val empName = com.example.appghichiso.utils.resolveEmpName(
+                        credentialsStorage.getSavedUsername() ?: ""
+                    )
+                    _tvanActionState.value = TvanActionState.ReceiptLoaded(receipt.copy(empName = empName))
                 },
                 onFailure = { err ->
                     _tvanActionState.value = TvanActionState.Error(err.message ?: "Lỗi lấy biên nhận")

@@ -140,7 +140,7 @@ private fun useCaseModule() = module {
 private fun viewModelModule() = module {
     viewModel { AuthViewModel(get(), get(), get(), get<SessionManager>()) }
     viewModel { RouteViewModel(get()) }
-    viewModel { CustomerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    viewModel { CustomerViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get<com.example.appghichiso.data.local.CredentialsStorage>()) }
     viewModel { MeterReadingViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
 }
 

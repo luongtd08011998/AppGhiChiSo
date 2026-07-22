@@ -37,7 +37,8 @@ class CustomerViewModel(
     private val getReceiptUseCase: GetReceiptUseCase,
     private val appStateHolder: AppStateHolder,
     private val getCustomersByRoadUseCase: GetCustomersByRoadUseCase,
-    private val smsRepository: SmsRepository
+    private val smsRepository: SmsRepository,
+    private val credentialsStorage: com.example.appghichiso.data.local.CredentialsStorage
 ) : ViewModel() {
 
     // ── Meter reading tab (Hóa Đơn > Ghi Chỉ Số) ──
@@ -553,7 +554,11 @@ class CustomerViewModel(
             _tvanActionState.value = TvanActionState.Loading
             getReceiptUseCase(id).fold(
                 onSuccess = { receipt ->
-                    _tvanActionState.value = TvanActionState.ReceiptLoaded(receipt)
+                    // Chuyển username → họ tên đầy đủ của thu ngân
+                    val empName = com.example.appghichiso.utils.resolveEmpName(
+                        credentialsStorage.getSavedUsername() ?: ""
+                    )
+                    _tvanActionState.value = TvanActionState.ReceiptLoaded(receipt.copy(empName = empName))
                 },
                 onFailure = { err ->
                     _tvanActionState.value = TvanActionState.Error(err.message ?: "Lỗi lấy biên nhận")

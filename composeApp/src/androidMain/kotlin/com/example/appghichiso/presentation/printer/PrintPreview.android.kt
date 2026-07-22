@@ -35,7 +35,6 @@ actual fun InvoicePrintPreviewDialog(invoice: InvoiceDto, onDismiss: () -> Unit)
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(true) }
 
-    // Render bitmap trên IO thread (có fetch QR từ mạng)
     LaunchedEffect(invoice) {
         loading = true
         bitmap = withContext(Dispatchers.IO) {

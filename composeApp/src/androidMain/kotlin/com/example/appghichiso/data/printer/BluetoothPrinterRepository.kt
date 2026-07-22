@@ -13,8 +13,9 @@ import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.domain.model.PrinterDevice
 import com.example.appghichiso.printer.PrinterRepository
-import com.example.appghichiso.utils.VietQrUrlFetcher
-import com.example.appghichiso.utils.buildVietQrUrl
+// TODO: Bỏ comment khi tính năng tự động gạch qua QR đã hoàn thiện
+// import com.example.appghichiso.utils.VietQrUrlFetcher
+// import com.example.appghichiso.utils.buildVietQrUrl
 import com.russhwolf.settings.Settings
 
 /**
@@ -74,6 +75,8 @@ class BluetoothPrinterRepository(
     }
 
     override suspend fun printInvoice(device: PrinterDevice, invoice: InvoiceDto): Result<Unit> = runCatching {
+        // TODO: Tạm ẩn QR - chờ hoàn thiện tính năng tự động gạch khi KH chuyển khoản qua QR
+        /*
         val qrUrl = buildVietQrUrl(
             amount = invoice.totalAmount,
             custCode = invoice.custCode ?: "",
@@ -82,6 +85,8 @@ class BluetoothPrinterRepository(
         )
         val qrBitmap = VietQrUrlFetcher.fetch(qrUrl) // có thể null nếu không có mạng
         val bitmap = ReceiptBitmapRenderer.renderInvoice(invoice, qrBitmap)
+        */
+        val bitmap = ReceiptBitmapRenderer.renderInvoice(invoice, null)
         printBitmap(device, bitmap)
     }
 

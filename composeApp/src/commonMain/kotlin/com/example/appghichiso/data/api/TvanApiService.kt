@@ -137,8 +137,6 @@ class TvanApiService(
             custAddress = map["custAddress"] ?: "",
             custTaxCode = map["custTaxCode"]?.takeIf { it != "null" },
             numOfHouseHold = map["numOfHouseHold"]?.toIntOrNull() ?: 1,
-            timeToUsedFrom = map["timeToUsedFrom"] ?: "",
-            timeToUsedTo = map["timeToUsedTo"] ?: "",
             period = map["period"] ?: "",
             oldIndex = map["oldIndex"]?.toLongOrNull() ?: 0,
             newIndex = map["newIndex"]?.toLongOrNull() ?: 0,
@@ -159,7 +157,9 @@ class TvanApiService(
             envFee = map["envFee"] ?: "",
             totalAmount = map["totalAmount"] ?: "",
             totalAmountInWord = map["totalAmountInWord"] ?: "",
-            lookupCode = map["LookupCode"] ?: map["lookupCode"] ?: ""
+            lookupCode = map["LookupCode"] ?: map["lookupCode"] ?: "",
+            paymentLineNum = map["paymentLineNum"]?.takeIf { it != "null" },
+            paymentLineDate = map["paymentLineDate"]?.takeIf { it != "null" }
         )
     }
 }

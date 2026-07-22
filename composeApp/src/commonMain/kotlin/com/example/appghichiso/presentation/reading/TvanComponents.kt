@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -26,7 +27,9 @@ import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.presentation.printer.InvoicePrintPreviewDialog
 import com.example.appghichiso.presentation.printer.ReceiptPrintPreviewDialog
-import com.example.appghichiso.utils.buildVietQrUrl
+// TODO: Bỏ comment khi tính năng tự động gạch qua QR đã hoàn thiện
+// import com.example.appghichiso.utils.buildVietQrUrl
+import com.example.appghichiso.utils.formatApiDate
 
 @Composable
 fun InvoicePaperDialog(
@@ -130,7 +133,28 @@ fun InvoicePaperDialog(
                         color = Color.Red,
                         style = MaterialTheme.typography.bodySmall
                     )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "THANH TOÁN TRỰC TUYẾN",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Các bước thực hiện:\nBước 1: Mở app ngân hàng hoặc ví điện tử của bạn.\nBước 2: Chọn mục \"Thanh toán hóa đơn - Nước\".\nBước 3: Tìm từ khóa \"Cấp nước Tóc Tiên\" và nhập mã \"${invoice.custCode ?: ""}\" để thanh toán.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.DarkGray,
+                        modifier = Modifier
+                            .width(220.dp)
+                            .align(Alignment.CenterHorizontally)
+                    )
 
+                    // TODO: Tạm ẩn phần QR code thanh toán - chờ hoàn thiện tính năng
+                    // tự động gạch chỉ số khi KH chuyển khoản qua QR code
+                    /*
                     Spacer(modifier = Modifier.height(20.dp))
                     Text(
                         "QUÉT MÃ QR ĐỂ THANH TOÁN",
@@ -161,6 +185,7 @@ fun InvoicePaperDialog(
                         color = Color.Gray,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
+                    */
                 }
 
                 // Buttons
@@ -296,7 +321,7 @@ fun ReceiptDialog(
                     Text("Địa chỉ: Ấp Tóc Tiên 1, xã Châu Pha, TP Hồ Chí Minh", color = Color.Black, style = MaterialTheme.typography.bodySmall)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Điện thoại: 0254 389 4894", color = Color.Black, style = MaterialTheme.typography.bodySmall)
-                        Text("Số: ${receipt.invNumber ?: ".........."}", color = Color.Black, style = MaterialTheme.typography.bodyMedium)
+                        Text("Hóa đơn: ${receipt.invNumber ?: ".........."}", color = Color.Black, style = MaterialTheme.typography.bodyMedium)
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -327,13 +352,13 @@ fun ReceiptDialog(
                             Spacer(Modifier.height(4.dp))
                             ReceiptInfoRow("Mã số thuế", receipt.custTaxCode ?: "")
                             Spacer(Modifier.height(4.dp))
-                            ReceiptInfoRow("Tính từ ngày", receipt.timeToUsedFrom)
+                            ReceiptInfoRow("Ngày phiếu thu", formatApiDate(receipt.paymentLineDate ?: ""))
                         }
                         Spacer(Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             ReceiptInfoRow("Số hộ SD", "${receipt.numOfHouseHold}")
                             Spacer(Modifier.height(4.dp))
-                            ReceiptInfoRow("Đến ngày", receipt.timeToUsedTo)
+                            ReceiptInfoRow("Phiếu thu", receipt.paymentLineNum ?: "")
                             Spacer(Modifier.height(4.dp))
                             ReceiptInfoRow("Kỳ", receipt.period)
                         }
@@ -412,9 +437,50 @@ fun ReceiptDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Người nộp tiền\n\n(Ký, họ tên)", style = MaterialTheme.typography.bodySmall, color = Color.Black, textAlign = TextAlign.Center)
-                        Text("Thu ngân\n\n(Ký, họ tên)", style = MaterialTheme.typography.bodySmall, color = Color.Black, textAlign = TextAlign.Center)
+                        // Cột người nộp tiền
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Người nộp tiền", style = MaterialTheme.typography.bodySmall, color = Color.Black, textAlign = TextAlign.Center)
+                            Spacer(modifier = Modifier.height(40.dp)) // chừa chỗ ký
+                            Text("(Ký, họ tên)", style = MaterialTheme.typography.bodySmall, color = Color.Black, textAlign = TextAlign.Center)
+                        }
+                        // Cột thu ngân
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Thu ngân", style = MaterialTheme.typography.bodySmall, color = Color.Black, textAlign = TextAlign.Center)
+                            Spacer(modifier = Modifier.height(40.dp)) // chừa chỗ ký
+                            if (receipt.empName.isNotBlank()) {
+                                Text(
+                                    receipt.empName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.Black,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Cảm ơn Quý khách đã hoàn tất thanh toán tiền nước.",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "Công ty TNHH Cấp nước Tóc Tiên hân hạnh được phục vụ Quý khách!",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 HorizontalDivider(color = Color.LightGray)
