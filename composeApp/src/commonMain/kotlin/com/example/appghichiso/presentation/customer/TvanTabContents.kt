@@ -1,5 +1,6 @@
 package com.example.appghichiso.presentation.customer
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -384,12 +385,34 @@ fun DebtItem(
             )
             Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    invoice.custName?.uppercase() ?: "",
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        invoice.custName?.uppercase() ?: "",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    // Badge kỳ tháng — hiển thị khi yearMonth có giá trị
+                    invoice.yearMonth?.let { ym ->
+                        val display = if (ym.length == 6) {
+                            "Kỳ ${ym.substring(4, 6)}/${ym.substring(0, 4)}"
+                        } else ym
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            display,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier
+                                .background(
+                                    color = Color(0xFFF57C00),
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                }
                 Text(
                     "Mã: ${invoice.custCode} • Chỉ số: ${invoice.oldIndex} → ${invoice.newIndex}",
                     style = MaterialTheme.typography.bodySmall,
