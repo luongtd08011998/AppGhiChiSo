@@ -93,18 +93,18 @@ fun ToPublishTabContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(
-                                    checked = selectedInvoiceIds.size == filtered.size && filtered.isNotEmpty(),
+                                    checked = selectedInvoiceIds.size > 0 && selectedInvoiceIds.size == minOf(filtered.size, 20),
                                     onCheckedChange = { checked ->
                                         selectedInvoiceIds.clear()
                                         if (checked) {
-                                            selectedInvoiceIds.addAll(filtered.map { it.id })
+                                            selectedInvoiceIds.addAll(filtered.map { it.id }.take(20))
                                         }
                                     },
                                     enabled = !isPublishing
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    "Chọn tất cả (${filtered.size})",
+                                    "Chọn nhiều (Tối đa 20 / ${filtered.size})",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -147,7 +147,9 @@ fun ToPublishTabContent(
                                         onCheckedChange = { checked ->
                                             if (!isPublishing) {
                                                 if (checked) {
-                                                    selectedInvoiceIds.add(invoice.id)
+                                                    if (selectedInvoiceIds.size < 20) {
+                                                        selectedInvoiceIds.add(invoice.id)
+                                                    }
                                                 } else {
                                                     selectedInvoiceIds.remove(invoice.id)
                                                 }
