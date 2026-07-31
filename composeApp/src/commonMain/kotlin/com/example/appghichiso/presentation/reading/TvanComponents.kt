@@ -196,23 +196,23 @@ fun InvoicePaperDialog(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        onClick = { showConfirmPay = true },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        enabled = !isLoading,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)) // Màu xanh lá
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.5.dp
-                            )
-                        } else {
-                            Text("Thu Tiền", fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    }
+//                    Button(
+//                        onClick = { showConfirmPay = true },
+//                        modifier = Modifier.fillMaxWidth().height(48.dp),
+//                        enabled = !isLoading,
+//                        shape = RoundedCornerShape(8.dp),
+//                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)) // Màu xanh lá
+//                    ) {
+//                        if (isLoading) {
+//                            CircularProgressIndicator(
+//                                modifier = Modifier.size(24.dp),
+//                                color = MaterialTheme.colorScheme.onPrimary,
+//                                strokeWidth = 2.5.dp
+//                            )
+//                        } else {
+//                            Text("Thu Tiền", fontWeight = FontWeight.Bold, color = Color.White)
+//                        }
+//                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
