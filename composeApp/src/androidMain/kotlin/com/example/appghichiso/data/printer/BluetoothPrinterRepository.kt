@@ -74,24 +74,24 @@ class BluetoothPrinterRepository(
         settings.remove(keySavedName)
     }
 
-    override suspend fun printInvoice(device: PrinterDevice, invoice: InvoiceDto): Result<Unit> = runCatching {
-        // TODO: Tạm ẩn QR - chờ hoàn thiện tính năng tự động gạch khi KH chuyển khoản qua QR
-        /*
-        val qrUrl = buildVietQrUrl(
-            amount = invoice.totalAmount,
-            custCode = invoice.custCode ?: "",
-            yearMonth = invoice.yearMonth ?: "",
-            invNumber = invoice.invNumber ?: ""
-        )
-        val qrBitmap = VietQrUrlFetcher.fetch(qrUrl) // có thể null nếu không có mạng
-        val bitmap = ReceiptBitmapRenderer.renderInvoice(invoice, qrBitmap)
-        */
-        val bitmap = ReceiptBitmapRenderer.renderInvoice(invoice, null)
+    override suspend fun printInvoice(device: PrinterDevice, invoice: InvoiceDto, qrBase64: String?): Result<Unit> = runCatching {
+        var qrBitmap: Bitmap? = null
+        if (!qrBase64.isNullOrBlank()) {
+            try {
+                val bytes = kotlin.io.encoding.Base64.Default.decode(qrBase64)
+                qrBitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        val logoBitmap = android.graphics.BitmapFactory.decodeResource(appContext.resources, com.example.appghichiso.R.drawable.logocongty1)
+        val bitmap = ReceiptBitmapRenderer.renderInvoice(invoice, qrBitmap = qrBitmap, logoBitmap = logoBitmap)
         printBitmap(device, bitmap)
     }
 
     override suspend fun printReceipt(device: PrinterDevice, receipt: ReceiptDto): Result<Unit> = runCatching {
-        val bitmap = ReceiptBitmapRenderer.renderReceipt(receipt)
+        val logoBitmap = android.graphics.BitmapFactory.decodeResource(appContext.resources, com.example.appghichiso.R.drawable.logocongty1)
+        val bitmap = ReceiptBitmapRenderer.renderReceipt(receipt, logoBitmap = logoBitmap)
         printBitmap(device, bitmap)
     }
 

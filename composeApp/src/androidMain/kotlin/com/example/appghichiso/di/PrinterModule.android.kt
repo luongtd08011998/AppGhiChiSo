@@ -17,5 +17,5 @@ fun printerModule(): Module = module {
             settings = get()
         )
     }
-    single { PrinterHub.init(get<PrinterRepository>()) }
+    single { PrinterHub.init(get<PrinterRepository>(), get<com.example.appghichiso.data.api.PaybillApiService>()) }
 }

@@ -32,7 +32,7 @@ private const val FS_TITLE  = 32f   // ~4.0mm bold
 object ReceiptBitmapRenderer {
 
     /** Render giấy báo tiền nước (có QR bitmap nếu được truyền vào). */
-    fun renderInvoice(invoice: InvoiceDto, qrBitmap: Bitmap? = null): Bitmap {
+    fun renderInvoice(invoice: InvoiceDto, qrBitmap: Bitmap? = null, logoBitmap: Bitmap? = null): Bitmap {
         val lines = buildList {
             add(Line("TẬP ĐOÀN HẢI CHÂU VIỆT NAM", Align.CENTER, Size.HEAD))
             add(Line("CÔNG TY TNHH CẤP NƯỚC TÓC TIÊN", Align.CENTER, Size.HEAD))
@@ -66,19 +66,17 @@ object ReceiptBitmapRenderer {
             add(Line("Bước 1: Mở app ngân hàng hoặc ví điện tử của bạn.", Align.LEFT, Size.BODY))
             add(Line("Bước 2: Chọn mục \"Thanh toán hóa đơn - Nước\".", Align.LEFT, Size.BODY))
             add(Line("Bước 3: Tìm từ khóa \"Cấp nước Tóc Tiên\" và nhập mã \"${invoice.custCode ?: ""}\" để thanh toán.", Align.LEFT, Size.BODY))
-            // TODO: tạm ẩn mã QR giấy báo tiền nước
-//            if (qrBitmap != null) {
-//                addBlank()
-//                add(Line("HOẶC QUÉT MÃ QR", Align.CENTER, Size.BODY, bold = true))
-//                addQr()
-//                add(Line("Mở app ngân hàng → Quét mã QR", Align.CENTER, Size.SMALL))
-//            }
+            if (qrBitmap != null) {
+                add(Line("HOẶC QUÉT MÃ QR", Align.CENTER, Size.BODY, bold = true))
+                addQr()
+                add(Line("Mở app ngân hàng → Quét mã QR", Align.CENTER, Size.SMALL))
+            }
         }
-        return composeToBitmap(lines, qrBitmap)
+        return composeToBitmap(lines, qrBitmap, logoBitmap)
     }
 
     /** Render biên nhận thanh toán (Liên 2, không QR). */
-    fun renderReceipt(receipt: ReceiptDto): Bitmap {
+    fun renderReceipt(receipt: ReceiptDto, logoBitmap: Bitmap? = null): Bitmap {
         val lines = buildList {
             add(Line("TẬP ĐOÀN HẢI CHÂU VIỆT NAM", Align.CENTER, Size.HEAD))
             add(Line("CÔNG TY TNHH CẤP NƯỚC TÓC TIÊN", Align.CENTER, Size.HEAD))
@@ -142,7 +140,7 @@ object ReceiptBitmapRenderer {
             add(Line("Cảm ơn Quý khách đã hoàn tất thanh toán tiền nước.", Align.CENTER, Size.SMALL, bold = true))
             add(Line("Công ty TNHH Cấp nước Tóc Tiên hân hạnh được phục vụ Quý khách!", Align.CENTER, Size.SMALL, bold = true))
         }
-        return composeToBitmap(lines, null)
+        return composeToBitmap(lines, null, logoBitmap)
     }
 
     // ---- helper ----
@@ -169,7 +167,7 @@ object ReceiptBitmapRenderer {
         Triple(r.volumn3, r.price3, r.amount3)
     )
 
-    private fun composeToBitmap(items: List<Drawable>, qr: Bitmap?): Bitmap {
+    private fun composeToBitmap(items: List<Drawable>, qr: Bitmap?, logo: Bitmap?): Bitmap {
         val paintBody  = basePaint(FS_BODY)
         val paintSmall = basePaint(FS_SMALL)
         val paintHead  = basePaint(FS_HEAD,  bold = true)
@@ -177,8 +175,8 @@ object ReceiptBitmapRenderer {
         val paintRow   = basePaint(FS_SMALL)
 
         val contentWidth = PRINT_WIDTH_PX - PADDING * 2
-        // QR tối đa 480px (= ~80% canvas 576px) → sau scale xuống 384px thành ~320px, đủ to để quét
-        val qrSize = if (qr != null) minOf(480, contentWidth) else 0
+        // QR khoảng 240px là kích thước tối ưu trên giấy in nhiệt 58mm (đủ nhỏ nhắn và dư sức quét được)
+        val qrSize = if (qr != null) minOf(240, contentWidth) else 0
 
         // ước lượng chiều cao
         var height = PADDING + 8
@@ -215,6 +213,26 @@ object ReceiptBitmapRenderer {
         val bitmap = Bitmap.createBitmap(PRINT_WIDTH_PX, height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
+
+        // DRAW WATERMARK
+        if (logo != null) {
+            val logoW = (PRINT_WIDTH_PX * 0.55).toInt() // 55% chiều rộng khổ giấy
+            val ratio = logoW.toFloat() / logo.width
+            val logoH = (logo.height * ratio).toInt()
+            val scaledLogo = Bitmap.createScaledBitmap(logo, logoW, logoH, true)
+            val ditheredLogo = ditherWatermark(scaledLogo)
+            
+            // Đặt ngay giữa trang ở phần đầu
+            val left = (PRINT_WIDTH_PX - logoW) / 2f
+            val top = PADDING.toFloat()
+            
+            val paint = Paint().apply {
+                isFilterBitmap = false
+                isAntiAlias = false
+                isDither = false
+            }
+            canvas.drawBitmap(ditheredLogo, left, top, paint)
+        }
 
         var y = PADDING + 24
         for (item in items) {
@@ -348,6 +366,53 @@ object ReceiptBitmapRenderer {
         outBmp.setPixels(pixels, 0, width, 0, 0, width, height)
         return outBmp
     }
+
+    private fun ditherWatermark(bitmap: Bitmap): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        val outBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+        // Bayer matrix 4x4
+        val bayer = arrayOf(
+            intArrayOf( 0,  8,  2, 10),
+            intArrayOf(12,  4, 14,  6),
+            intArrayOf( 3, 11,  1,  9),
+            intArrayOf(15,  7, 13,  5)
+        )
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val color = pixels[y * width + x]
+                val a = (color shr 24) and 0xFF
+                if (a < 128) {
+                    pixels[y * width + x] = Color.WHITE
+                    continue
+                }
+                val r = (color shr 16) and 0xFF
+                val g = (color shr 8) and 0xFF
+                val b = color and 0xFF
+                val gray = (r * 0.299 + g * 0.587 + b * 0.114).toInt()
+                
+                // Mức xám trung bình nhạt (khoảng 50% opacity)
+                // Các pixel tối nhất (gray=0) sẽ thành 130, 8/16 (50%) chấm đen.
+                // Các pixel sáng sẽ lên tới 255 (0% chấm đen).
+                val lightenedGray = 130 + (gray * 125 / 255)
+                
+                val threshold = bayer[y % 4][x % 4] * 16
+                
+                if (lightenedGray < threshold) {
+                    pixels[y * width + x] = Color.BLACK
+                } else {
+                    pixels[y * width + x] = Color.WHITE
+                }
+            }
+        }
+        outBmp.setPixels(pixels, 0, width, 0, 0, width, height)
+        return outBmp
+    }
+
 
     private fun drawCentered(canvas: Canvas, text: String, centerX: Float, baseline: Float, paint: Paint) {
         if (text.isBlank()) return

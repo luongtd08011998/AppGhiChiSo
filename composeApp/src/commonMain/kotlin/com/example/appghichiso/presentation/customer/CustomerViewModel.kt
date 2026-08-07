@@ -124,8 +124,23 @@ class CustomerViewModel(
     val currentYear: Int get() = appStateHolder.billingYear.takeIf { it > 0 } ?: currentYear()
     val currentMonth: Int get() = appStateHolder.billingMonth.takeIf { it > 0 } ?: currentMonth()
 
+    private fun mapCustomerId(invoices: List<InvoiceDto>): List<InvoiceDto> {
+        if (currentCustomerList.isEmpty()) return invoices
+        return invoices.map { inv ->
+            if (inv.custId == 0L) {
+                val matched = currentCustomerList.find { it.customerCode == inv.custCode }
+                if (matched != null) inv.copy(custId = matched.customerId.toLong()) else inv
+            } else inv
+        }
+    }
+
     fun loadCustomers(roadCode: String) {
         currentRoadCode = roadCode
+        // Load default: Tab Hóa Đơn > Sub-tab Ghi Chỉ Số
+        loadInvoiceSubTab(0)
+    }
+
+    fun loadCustomerData(roadCode: String, year: Int, month: Int) {
         // Load default: Tab Hóa Đơn > Sub-tab Ghi Chỉ Số
         loadInvoiceSubTab(0)
     }
@@ -246,8 +261,9 @@ class CustomerViewModel(
                     _toPublishState.value = UiState.Loading
                     getToPublishListUseCase(ym, currentRoadCode, "", 0)
                         .onSuccess {
-                            maxToPublishPage = it.firstOrNull()?.numOfPages ?: 1
-                            currentToPublishList.addAll(it)
+                            val mapped = mapCustomerId(it)
+                            maxToPublishPage = mapped.firstOrNull()?.numOfPages ?: 1
+                            currentToPublishList.addAll(mapped)
                             _toPublishState.value = UiState.Success(currentToPublishList.toList())
                         }
                         .onFailure { _toPublishState.value = UiState.Error(it.message ?: "Lỗi tải danh sách chưa phát hành") }
@@ -265,12 +281,12 @@ class CustomerViewModel(
                     } else null
 
                     if (ymResult.isSuccess) {
-                        val debtsYm = ymResult.getOrNull() ?: emptyList()
+                        val debtsYm = mapCustomerId(ymResult.getOrNull() ?: emptyList())
                         maxDebtPageYm = debtsYm.firstOrNull()?.numOfPages ?: 1
                         val debtsSys = if (systemYmResult != null && systemYmResult.isSuccess) {
-                            val sys = systemYmResult.getOrNull() ?: emptyList()
-                            maxDebtPageSys = sys.firstOrNull()?.numOfPages ?: 1
-                            sys
+                            val mapped = mapCustomerId(systemYmResult.getOrNull() ?: emptyList())
+                            maxDebtPageSys = mapped.firstOrNull()?.numOfPages ?: 1
+                            mapped
                         } else {
                             maxDebtPageSys = 1
                             emptyList()
@@ -298,12 +314,12 @@ class CustomerViewModel(
                     } else null
 
                     if (ymResult.isSuccess) {
-                        val paidYm = ymResult.getOrNull() ?: emptyList()
+                        val paidYm = mapCustomerId(ymResult.getOrNull() ?: emptyList())
                         maxPaidPageYm = paidYm.firstOrNull()?.numOfPages ?: 1
                         val paidSys = if (systemYmResult != null && systemYmResult.isSuccess) {
-                            val sys = systemYmResult.getOrNull() ?: emptyList()
-                            maxPaidPageSys = sys.firstOrNull()?.numOfPages ?: 1
-                            sys
+                            val mapped = mapCustomerId(systemYmResult.getOrNull() ?: emptyList())
+                            maxPaidPageSys = mapped.firstOrNull()?.numOfPages ?: 1
+                            mapped
                         } else {
                             maxPaidPageSys = 1
                             emptyList()
@@ -334,11 +350,11 @@ class CustomerViewModel(
                 val newItems = mutableListOf<InvoiceDto>()
                 if (page < maxDebtPageYm && debtPageYm < page) {
                     getDebtListUseCase(ym, currentRoadCode, "", page)
-                        .onSuccess { newItems.addAll(it) }
+                        .onSuccess { newItems.addAll(mapCustomerId(it)) }
                 }
                 if (page < maxDebtPageSys && debtPageSys < page && systemYm != ym) {
                     getDebtListUseCase(systemYm, currentRoadCode, "", page)
-                        .onSuccess { newItems.addAll(it) }
+                        .onSuccess { newItems.addAll(mapCustomerId(it)) }
                 }
                 val filtered = newItems.filter { newItem ->
                     currentDebtList.none { it.id == newItem.id }
@@ -365,11 +381,11 @@ class CustomerViewModel(
                 val newItems = mutableListOf<InvoiceDto>()
                 if (page < maxPaidPageYm && paidPageYm < page) {
                     getPaidListUseCase(ym, currentRoadCode, "", page)
-                        .onSuccess { newItems.addAll(it) }
+                        .onSuccess { newItems.addAll(mapCustomerId(it)) }
                 }
                 if (page < maxPaidPageSys && paidPageSys < page && systemYm != ym) {
                     getPaidListUseCase(systemYm, currentRoadCode, "", page)
-                        .onSuccess { newItems.addAll(it) }
+                        .onSuccess { newItems.addAll(mapCustomerId(it)) }
                 }
                 val filtered = newItems.filter { newItem ->
                     currentPaidList.none { it.id == newItem.id }
@@ -427,7 +443,7 @@ class CustomerViewModel(
         viewModelScope.launch {
             getToPublishListUseCase(ym, currentRoadCode, "", toPublishPage)
                 .onSuccess {
-                    currentToPublishList.addAll(it)
+                    currentToPublishList.addAll(mapCustomerId(it))
                     _toPublishState.value = UiState.Success(currentToPublishList.toList())
                 }
                 .onFailure {
@@ -452,13 +468,13 @@ class CustomerViewModel(
             if (canLoadYm) {
                 debtPageYm++
                 getDebtListUseCase(ym, currentRoadCode, "", debtPageYm)
-                    .onSuccess { newItems.addAll(it) }
+                    .onSuccess { newItems.addAll(mapCustomerId(it)) }
                     .onFailure { debtPageYm-- }
             }
             if (canLoadSys && systemYm != ym) {
                 debtPageSys++
                 getDebtListUseCase(systemYm, currentRoadCode, "", debtPageSys)
-                    .onSuccess { newItems.addAll(it) }
+                    .onSuccess { newItems.addAll(mapCustomerId(it)) }
                     .onFailure { debtPageSys-- }
             }
             if (newItems.isNotEmpty()) {
@@ -484,13 +500,13 @@ class CustomerViewModel(
             if (canLoadYm) {
                 paidPageYm++
                 getPaidListUseCase(ym, currentRoadCode, "", paidPageYm)
-                    .onSuccess { newItems.addAll(it) }
+                    .onSuccess { newItems.addAll(mapCustomerId(it)) }
                     .onFailure { paidPageYm-- }
             }
             if (canLoadSys && systemYm != ym) {
                 paidPageSys++
                 getPaidListUseCase(systemYm, currentRoadCode, "", paidPageSys)
-                    .onSuccess { newItems.addAll(it) }
+                    .onSuccess { newItems.addAll(mapCustomerId(it)) }
                     .onFailure { paidPageSys-- }
             }
             if (newItems.isNotEmpty()) {

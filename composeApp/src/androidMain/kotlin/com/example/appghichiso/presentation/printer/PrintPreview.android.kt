@@ -21,8 +21,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.data.printer.ReceiptBitmapRenderer
-import com.example.appghichiso.utils.VietQrUrlFetcher
-import com.example.appghichiso.utils.buildVietQrUrl
+import org.koin.compose.koinInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -35,17 +34,31 @@ actual fun InvoicePrintPreviewDialog(invoice: InvoiceDto, onDismiss: () -> Unit)
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(true) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    val paybillApiService = koinInject<com.example.appghichiso.data.api.PaybillApiService>()
+
     LaunchedEffect(invoice) {
         loading = true
         bitmap = withContext(Dispatchers.IO) {
-            val qrUrl = buildVietQrUrl(
-                amount = invoice.totalAmount,
-                custCode = invoice.custCode ?: "",
-                yearMonth = invoice.yearMonth ?: "",
-                invNumber = invoice.invNumber ?: ""
-            )
-            val qrBitmap = VietQrUrlFetcher.fetch(qrUrl)
-            ReceiptBitmapRenderer.renderInvoice(invoice, qrBitmap)
+            var qrBitmap: Bitmap? = null
+            try {
+                val req = com.example.appghichiso.data.api.dto.PaybillQrRequest(
+                    digiCode = invoice.custCode ?: "",
+                    monthInvoiceIds = listOf(invoice.id)
+                )
+                val res = paybillApiService.getQrCode(req)
+                val b64 = res.qrContent
+                if (!b64.isNullOrBlank()) {
+                    @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+                    val bytes = kotlin.io.encoding.Base64.Default.decode(b64)
+                    qrBitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            val logoBitmap = android.graphics.BitmapFactory.decodeResource(context.resources, com.example.appghichiso.R.drawable.logocongty1)
+            ReceiptBitmapRenderer.renderInvoice(invoice, qrBitmap, logoBitmap)
         }
         loading = false
     }
@@ -58,10 +71,13 @@ actual fun ReceiptPrintPreviewDialog(receipt: ReceiptDto, onDismiss: () -> Unit)
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(true) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     LaunchedEffect(receipt) {
         loading = true
         bitmap = withContext(Dispatchers.IO) {
-            ReceiptBitmapRenderer.renderReceipt(receipt)
+            val logoBitmap = android.graphics.BitmapFactory.decodeResource(context.resources, com.example.appghichiso.R.drawable.logocongty1)
+            ReceiptBitmapRenderer.renderReceipt(receipt, logoBitmap)
         }
         loading = false
     }

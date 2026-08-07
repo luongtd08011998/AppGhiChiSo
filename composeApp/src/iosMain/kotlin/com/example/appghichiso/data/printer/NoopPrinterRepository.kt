@@ -14,7 +14,7 @@ class NoopPrinterRepository : PrinterRepository {
     override fun getSavedPrinter(): PrinterDevice? = null
     override fun savePrinter(device: PrinterDevice) {}
     override fun clearSavedPrinter() {}
-    override suspend fun printInvoice(device: PrinterDevice, invoice: InvoiceDto): Result<Unit> =
+    override suspend fun printInvoice(device: PrinterDevice, invoice: InvoiceDto, qrBase64: String?): Result<Unit> =
         Result.failure(UnsupportedOperationException("Tính năng in chưa hỗ trợ iOS"))
     override suspend fun printReceipt(device: PrinterDevice, receipt: ReceiptDto): Result<Unit> =
         Result.failure(UnsupportedOperationException("Tính năng in chưa hỗ trợ iOS"))

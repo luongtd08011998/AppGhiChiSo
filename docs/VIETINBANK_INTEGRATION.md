@@ -7,13 +7,16 @@
 
 ## 0. Tổng quan vai trò
 
-| Bên | Trách nhiệm |
-|-----|-------------|
-| **Mobile app** (dự án này) | Sinh QR trên biên nhận in giấy; kiểm tra/hiển thị trạng thái thanh toán từ BE |
-| **BE** (công ty nước) | Triển khai **2 endpoint** cho VTB gọi vào + đối soát FTP/SFTP + ký số RSA + đồng bộ trạng thái với thu tiền mặt |
-| **VietinBank (VTB)** | Trung gian thu tiền, hạch toán, gọi webhook, đẩy file đối soát |
+Để đảm bảo hệ thống vận hành thông suốt, an toàn và chống thu trùng, các bên có trách nhiệm cụ thể như sau:
 
-> ⚠️ Cả 2 API (`inq-bill`, `notify-trans`) đều là **inbound (VTB gọi vào BE)**. BE KHÔNG chủ động gọi ra VTB (trừ việc pull/push file đối soát qua FTP/SFTP).
+| Bên | Trách nhiệm chi tiết |
+|-----|----------------------|
+| **Mobile app** (Dự án này - Nhân viên GCS) | - Nhận thông tin hóa đơn kèm **Tài Khoản Định Danh (TKĐD)** của khách hàng từ BE.<br>- **Sinh mã QR động** (nhúng TKĐD của KH, số tiền kỳ này, nội dung) và in lên biên nhận giấy. |
+| **BE** (Hệ thống Server - Công ty nước) | - Quản lý mapping giữa mã KH (`custCode`) và **TKĐD** (`virtualAccountNo`).<br>- Cung cấp **2 API endpoint** (`inq-bill`, `notify-bill`) để VTB gọi vào.<br>- Xử lý **gạch nợ tự động**, kiểm tra chữ ký số RSA-SHA256.<br>- Xây dựng cơ sở dữ liệu xử lý **chống trùng lặp** (idempotency) và lưu giao dịch thừa (`overpayments`).<br>- Chạy job **đối soát file FTP/SFTP** với VTB vào ngày T+1. |
+| **VietinBank (VTB)** | - Cấp phát và quản lý dải Tài Khoản Định Danh cho công ty nước.<br>- Làm trung gian nhận tiền, **hạch toán** vào tài khoản chính của công ty.<br>- Ngay lập tức **gọi webhook (API)** sang BE công ty nước để báo cáo giao dịch (notify-trans).<br>- Tự động xuất và đẩy file đối soát hàng ngày lên server FTP. |
+
+> ⚠️ **LƯU Ý GIAO TIẾP MẠNG:** 
+> Cả 2 API (`inq-bill`, `notify-trans`) đều là **inbound (VTB chủ động gọi vào BE)**. BE của công ty nước KHÔNG BAO GIỜ chủ động gọi ra VTB (ngoại trừ việc lấy/đẩy file đối soát FTP/SFTP). Server BE cần cung cấp URL Public và Whitelist IP của VTB.
 
 ---
 
@@ -36,19 +39,9 @@ Khách quét QR trên biên nhận ──chuyển tiền──► VietinBank ─
 
 Ngoài ra, **kênh thu tiền mặt** (NV bấm trên app) cũng cập nhật cùng trạng thái hóa đơn với notify-trans → cần đồng bộ (xem A10).
 
-## A2. Quyết định mô hình: ĐỀ XUẤT ĐỘNG (`transType=2`)
+## A2. Quyết định mô hình: ĐÃ CHỐT MÔ HÌNH TĨNH (`transType=3`)
 
-Tài liệu hỗ trợ cả **tĩnh** (`transType=3`, TKĐD riêng/KH) và **động** (`transType=2`, parse `remark`).
-
-**Đề xuất mô hình ĐỘNG** vì:
-- App mobile hiện tại đã dùng **1 STK chung** (`113601145666`) + `addInfo` phân biệt KH → khớp tinh thần mô hình động.
-- Không cần xin VTB cấp TKĐD cho từng KH → triển khai nhanh, dễ mở rộng.
-
-> Nếu VTB chốt **tĩnh**: BE cần thêm bảng mapping `custCode ↔ recvVirtualAcctId`; mobile sửa `VietQrBuilder.buildVietQrUrl()` nhận `accountNo` theo từng KH thay vì hardcode 1 STK.
-
-### A2-bis. Phương án MÔ HÌNH TĨNH (`transType=3`) — nếu VTB chốt
-
-Nếu VTB chọn tĩnh (mỗi KH 1 TKĐD riêng `recvVirtualAcctId`):
+Đã chốt sử dụng mô hình **TĨNH** (`transType=3`), nghĩa là **mỗi khách hàng sẽ được cấp 1 Tài Khoản Định Danh (TKĐD) riêng**.
 
 **Mobile — sửa `buildVietQrUrl`:**
 ```kotlin
@@ -58,24 +51,23 @@ fun buildVietQrUrl(
     yearMonth: String, invNumber: String
 ): String {
     val bankId = "970415"
-    val accountNo = virtualAccountNo   // thay vì hardcode "113601145666"
+    val accountNo = virtualAccountNo   // Dùng TKĐD của KH thay vì 1 STK chung
     // ...phần còn lại giữ nguyên
 }
 ```
-→ Model `Customer`/`Invoice` thêm field `virtualAccountNo`; BE trả kèm khi lấy DS hóa đơn.
+→ Model `Customer`/`Invoice` cần thêm field `virtualAccountNo` (hoặc lấy từ thông tin khách hàng); BE trả kèm khi lấy DS hóa đơn.
 
 **BE:**
 - Thêm bảng `customers.recv_virtual_acct_id` (mapping `custCode ↔ recvVirtualAcctId`).
-- Nhận dữ liệu TKĐD từ VTB qua **file batch** hoặc **API mở TKĐD** (chốt B4).
+- Nhận dữ liệu TKĐD từ VTB qua **file batch** hoặc **API mở TKĐD**.
 - Khi nhận `notify-trans`: nhận diện KH qua `recvVirtualAcctId` (chính) thay vì parse `remark`.
 
 **Quy trình in biên nhận:**
-- TKĐD cố định/KH → có thể in 1 QR cố định trên thẻ KH (dùng nhiều kỳ).
-- `amount` đổi theo kỳ → đề xuất **QR có amount** (sinh mỗi kỳ) để KH không nhập sai số tiền.
+- TKĐD cố định/KH → có thể in 1 QR cố định trên thẻ KH (dùng nhiều kỳ). Tuy nhiên, vì `amount` đổi theo kỳ → đề xuất **QR có amount** (sinh mỗi kỳ trên biên nhận) để KH không nhập sai số tiền.
 
 **Rủi ro trùng:** vẫn cần `overpayments` + idempotent (KH chuyển nhiều lần vào cùng TKĐD). Bớt được rủi ro parse sai nội dung.
 
-**Câu hỏi bổ sung cho VTB (nếu tĩnh):**
+**Câu hỏi bổ sung cho VTB:**
 - Cấp TKĐD qua **file batch** hay **API mở TKĐD**? Tần suất khi có KH mới?
 - 1 KH có **1 TKĐD cố định** (dùng mọi kỳ) hay đổi theo kỳ?
 - Cấu trúc `recvVirtualAcctId`?
@@ -289,10 +281,10 @@ recordPayment(custCode, billTerm, amount, source, transId):
 | Mô hình | Chặn trước ở ngân hàng | Xử lý sau (BE) |
 |---|---|---|
 | **Động** (STK chung `transType=2`) | ❌ **Không thể** — STK thường nhận mọi giao dịch | ✅ idempotent + hoàn tiền (A11) |
-| **Tĩnh** (theo tài liệu, `transType=3`) | ❌ Không — TKĐD chưa có chế độ khóa | ✅ idempotent + hoàn tiền |
+| **Tĩnh** (ĐÃ CHỐT, `transType=3`) | ❌ Không — TKĐD chưa có chế độ khóa | ✅ idempotent + hoàn tiền |
 | **Tĩnh + TKĐD one-time/amount-locked** (B18) | ✅ **Có** — KH quét lại bị từ chối tận gốc | ít cần |
 
-> 🔑 **Kết luận:** Muốn **chặn trước** (KH quét trùng bị lỗi ngay) → bắt buộc dùng **tĩnh + TKĐD one-time** (phải hỏi VTB, B18). Mô hình **động chỉ xử lý sau** (nhận trùng → hoàn tiền).
+> 🔑 **Kết luận:** Do đã chốt dùng mô hình tĩnh, cần ưu tiên hỏi VTB xem có hỗ trợ **TKĐD one-time/amount-locked** không để chặn trùng từ gốc. Nếu không có, BE vẫn phải xử lý sau bằng `overpayments` + hoàn tiền (A11).
 
 ## A11. Quy trình HOÀN TIỀN khi KH chuyển trùng/thừa ⭐
 
@@ -405,6 +397,7 @@ Tài liệu quy định rất nhiều trường vì nó là **schema tổng quá
 ## Phụ lục — Tham chiếu code hiện tại (mobile)
 - Sinh QR: [`VietQrBuilder.kt`](../composeApp/src/commonMain/kotlin/com/example/appghichiso/utils/VietQrBuilder.kt) — hàm `buildVietQrUrl(amount, custCode, yearMonth, invNumber)`.
 - Hiển thị QR trên biên nhận: [`TvanComponents.kt`](../composeApp/src/commonMain/kotlin/com/example/appghichiso/presentation/reading/TvanComponents.kt).
-- BIN VietinBank `970415` (đúng), STK nhận hardcode `113601145666`, `addInfo = "CN.TOCTIEN {custCode} {yearMonth} {invNumber}"`.
+- BIN VietinBank `970415` (đúng).
 
-> Nếu VTB chốt mô hình **tĩnh**, cần sửa `buildVietQrUrl` nhận `accountNo` (= TKĐD) theo từng KH thay vì hardcode 1 STK.
+> Vì đã chốt mô hình **tĩnh**, cần sửa `buildVietQrUrl` nhận `accountNo` (= TKĐD) theo từng KH thay vì hardcode 1 STK.
+

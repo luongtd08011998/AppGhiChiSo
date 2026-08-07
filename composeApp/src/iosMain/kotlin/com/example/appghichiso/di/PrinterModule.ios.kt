@@ -11,5 +11,5 @@ import org.koin.dsl.module
  */
 fun printerModule(): Module = module {
     single<PrinterRepository> { NoopPrinterRepository() }
-    single { PrinterHub.init(get<PrinterRepository>()) }
+    single { PrinterHub.init(get<PrinterRepository>(), get<com.example.appghichiso.data.api.PaybillApiService>()) }
 }

@@ -89,6 +89,7 @@ fun MeterReadingScreen(
         appStateHolder.selectedCustomer = customer
         viewModel.loadCustomerData(
             customerCode = customer.customerCode,
+            customerId = customer.customerId.toLong(),
             year = customer.year,
             month = customer.month,
             previousIndex = customer.previousIndex,

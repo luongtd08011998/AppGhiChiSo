@@ -5,6 +5,7 @@ import com.example.appghichiso.data.api.CustomerApiService
 import com.example.appghichiso.data.api.MeterReadingApiService
 import com.example.appghichiso.data.api.RoadApiService
 import com.example.appghichiso.data.api.SmsApiService
+import com.example.appghichiso.data.api.PaybillApiService
 import com.example.appghichiso.data.api.createHttpClient
 import com.example.appghichiso.data.local.CredentialsStorage
 import com.example.appghichiso.data.repository.AuthRepositoryImpl
@@ -111,6 +112,7 @@ private fun networkModule() = module {
     single { MeterReadingApiService(get()) }
     single { SmsApiService(get(), get()) }
     single { com.example.appghichiso.data.api.TvanApiService(get(), get()) }
+    single { PaybillApiService(get()) }
 }
 
 private fun repositoryModule() = module {

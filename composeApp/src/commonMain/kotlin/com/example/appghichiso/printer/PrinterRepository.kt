@@ -26,7 +26,7 @@ interface PrinterRepository {
     fun clearSavedPrinter()
 
     /** In giấy báo tiền nước (có QR). */
-    suspend fun printInvoice(device: PrinterDevice, invoice: InvoiceDto): Result<Unit>
+    suspend fun printInvoice(device: PrinterDevice, invoice: InvoiceDto, qrBase64: String? = null): Result<Unit>
 
     /** In biên nhận thanh toán (Liên 2). */
     suspend fun printReceipt(device: PrinterDevice, receipt: ReceiptDto): Result<Unit>

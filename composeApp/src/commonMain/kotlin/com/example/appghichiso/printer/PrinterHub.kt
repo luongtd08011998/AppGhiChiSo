@@ -18,7 +18,8 @@ import kotlinx.coroutines.launch
  * Vòng đời: [instance] được gán khi khởi tạo từ Koin (xem `printerModule()` ở androidMain/iosMain).
  */
 class PrinterHub(
-    private val repository: PrinterRepository
+    private val repository: PrinterRepository,
+    private val paybillApiService: com.example.appghichiso.data.api.PaybillApiService? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -45,7 +46,22 @@ class PrinterHub(
             openPicker()
             return
         }
-        launchPrint { repository.printInvoice(repository.getSavedPrinter()!!, invoice) }
+        launchPrint { 
+            var qrBase64: String? = null
+            if (paybillApiService != null) {
+                try {
+                    val req = com.example.appghichiso.data.api.dto.PaybillQrRequest(
+                        digiCode = invoice.custCode ?: "",
+                        monthInvoiceIds = listOf(invoice.id)
+                    )
+                    val res = paybillApiService.getQrCode(req)
+                    qrBase64 = res.qrContent
+                } catch(e: Exception) {
+                    com.example.appghichiso.util.Logger.e("PrinterHub", e) { "Lỗi tải Payoo QR" }
+                }
+            }
+            repository.printInvoice(repository.getSavedPrinter()!!, invoice, qrBase64) 
+        }
     }
 
     fun requestPrintReceipt(receipt: ReceiptDto) {
@@ -80,7 +96,22 @@ class PrinterHub(
         pendingInvoice = null
         pendingReceipt = null
         when {
-            inv != null -> launchPrint { repository.printInvoice(device, inv) }
+            inv != null -> {
+                launchPrint { 
+                    var qrBase64: String? = null
+                    if (paybillApiService != null) {
+                        try {
+                            val req = com.example.appghichiso.data.api.dto.PaybillQrRequest(
+                                digiCode = inv.custCode ?: "",
+                                monthInvoiceIds = listOf(inv.id)
+                            )
+                            val res = paybillApiService.getQrCode(req)
+                            qrBase64 = res.qrContent
+                        } catch(e: Exception) {}
+                    }
+                    repository.printInvoice(device, inv, qrBase64) 
+                }
+            }
             rec != null -> launchPrint { repository.printReceipt(device, rec) }
         }
     }
@@ -140,8 +171,8 @@ class PrinterHub(
         val instance: PrinterHub
             get() = _instance ?: error("PrinterHub chưa được khởi tạo. Gọi PrinterHub.init(repo) khi app start.")
 
-        fun init(repository: PrinterRepository): PrinterHub {
-            val hub = PrinterHub(repository)
+        fun init(repository: PrinterRepository, paybillApiService: com.example.appghichiso.data.api.PaybillApiService? = null): PrinterHub {
+            val hub = PrinterHub(repository, paybillApiService)
             _instance = hub
             return hub
         }

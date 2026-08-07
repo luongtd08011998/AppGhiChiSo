@@ -122,6 +122,7 @@ class MeterReadingViewModel(
 
     // Lưu lại customerCode và ym hiện tại để dùng cho cache lookup
     private var loadedCustomerCode: String = ""
+    private var loadedCustomerId: Long = 0L
     private var loadedYm: String = ""
 
     private fun addTvanLog(msg: String) {
@@ -129,7 +130,7 @@ class MeterReadingViewModel(
         _tvanDebugLog.value += "$msg\n"
     }
 
-    fun loadCustomerData(customerCode: String, year: Int, month: Int, previousIndex: Int, currentIndex: Int, roadCode: String = "", preloadedInvoiceId: Long? = null) {
+    fun loadCustomerData(customerCode: String, customerId: Long, year: Int, month: Int, previousIndex: Int, currentIndex: Int, roadCode: String = "", preloadedInvoiceId: Long? = null) {
         _previousMonthConsumption.value = null
         _historyState.value = HistoryState.Loading
         _smsNumber.value = null
@@ -146,6 +147,7 @@ class MeterReadingViewModel(
 
         _tvanDebugLog.value = ""
         loadedCustomerCode = customerCode
+        loadedCustomerId = customerId
         loadedYm = "$year${month.toString().padStart(2, '0')}"
 
         val prevYear = if (month == 1) year - 1 else year
@@ -213,6 +215,7 @@ class MeterReadingViewModel(
                         if (preloadedInvoiceId != null) {
                             val invoiceDto = InvoiceDto(
                                 id = preloadedInvoiceId,
+                                custId = customerId,
                                 custCode = customerCode,
                                 yearMonth = ym,
                                 totalAmount = 0.0,
@@ -234,6 +237,7 @@ class MeterReadingViewModel(
                         addTvanLog("Invoice ID đã có sẵn từ get-invoices-by-road: $preloadedInvoiceId")
                         val invoiceDto = InvoiceDto(
                             id = preloadedInvoiceId,
+                            custId = customerId,
                             custCode = customerCode,
                             yearMonth = ym,
                             totalAmount = 0.0,
@@ -352,7 +356,7 @@ class MeterReadingViewModel(
                 val activeInvoiceId = if (invoiceId > 0) invoiceId else _currentInvoice.value?.id ?: 0L
                 // Sau khi lưu thành công, cập nhật invoice cho TVAN
                 if (_currentInvoice.value == null) {
-                    _currentInvoice.value = InvoiceDto(id = activeInvoiceId, custCode = customerCode,
+                    _currentInvoice.value = InvoiceDto(id = activeInvoiceId, custId = loadedCustomerId, custCode = customerCode,
                         yearMonth = "$year${month.toString().padStart(2, '0')}",
                         totalAmount = 0.0, oldIndex = 0, newIndex = 0)
                     _isTvanCreated.value = false

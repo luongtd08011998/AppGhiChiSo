@@ -1,6 +1,9 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package com.example.appghichiso.data.api.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 
 @Serializable
 data class InvoiceDto(
@@ -11,6 +14,8 @@ data class InvoiceDto(
     val custCode: String? = null,
     val custName: String? = null,
     val custAddress: String? = null,
+    @JsonNames("custId", "customerId")
+    val custId: Long = 0,
     val totalAmount: Double,
     val oldIndex: Long,
     val newIndex: Long,
