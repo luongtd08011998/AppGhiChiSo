@@ -46,22 +46,8 @@ class PrinterHub(
             openPicker()
             return
         }
-        launchPrint { 
-            var qrBase64: String? = null
-            if (paybillApiService != null) {
-                try {
-                    val req = com.example.appghichiso.data.api.dto.PaybillQrRequest(
-                        digiCode = invoice.custCode ?: "",
-                        monthInvoiceIds = listOf(invoice.id)
-                    )
-                    val res = paybillApiService.getQrCode(req)
-                    qrBase64 = res.qrContent
-                } catch(e: Exception) {
-                    com.example.appghichiso.util.Logger.e("PrinterHub", e) { "Lỗi tải Payoo QR" }
-                }
-            }
-            repository.printInvoice(repository.getSavedPrinter()!!, invoice, qrBase64) 
-        }
+        // QR BIDV được tải tự động trong BluetoothPrinterRepository.printInvoice
+        launchPrint { repository.printInvoice(repository.getSavedPrinter()!!, invoice, null) }
     }
 
     fun requestPrintReceipt(receipt: ReceiptDto) {
@@ -97,20 +83,8 @@ class PrinterHub(
         pendingReceipt = null
         when {
             inv != null -> {
-                launchPrint { 
-                    var qrBase64: String? = null
-                    if (paybillApiService != null) {
-                        try {
-                            val req = com.example.appghichiso.data.api.dto.PaybillQrRequest(
-                                digiCode = inv.custCode ?: "",
-                                monthInvoiceIds = listOf(inv.id)
-                            )
-                            val res = paybillApiService.getQrCode(req)
-                            qrBase64 = res.qrContent
-                        } catch(e: Exception) {}
-                    }
-                    repository.printInvoice(device, inv, qrBase64) 
-                }
+                // QR BIDV được tải tự động trong BluetoothPrinterRepository.printInvoice
+                launchPrint { repository.printInvoice(device, inv, null) }
             }
             rec != null -> launchPrint { repository.printReceipt(device, rec) }
         }

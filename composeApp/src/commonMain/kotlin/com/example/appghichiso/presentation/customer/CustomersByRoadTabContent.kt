@@ -56,6 +56,7 @@ import com.example.appghichiso.presentation.common.LoadingIndicator
 import com.example.appghichiso.presentation.common.UiState
 import com.example.appghichiso.presentation.reading.PhoneEditDialog
 import com.example.appghichiso.presentation.reading.SmsEditDialog
+import com.example.appghichiso.utils.matchesSearch
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -149,9 +150,9 @@ fun CustomersByRoadTabContent(
         is UiState.Success -> {
             val filtered = state.data.filter { c ->
                 searchQuery.isBlank() ||
-                    c.customerName.contains(searchQuery, ignoreCase = true) ||
-                    c.customerCode.contains(searchQuery, ignoreCase = true) ||
-                    c.phone.contains(searchQuery, ignoreCase = true)
+                    c.customerName.matchesSearch(searchQuery) ||
+                    c.customerCode.matchesSearch(searchQuery) ||
+                    c.phone.matchesSearch(searchQuery)
             }
 
             if (filtered.isEmpty()) {

@@ -70,6 +70,7 @@ object ReceiptBitmapRenderer {
                 add(Line("HOẶC QUÉT MÃ QR", Align.CENTER, Size.BODY, bold = true))
                 addQr()
                 add(Line("Mở app ngân hàng → Quét mã QR", Align.CENTER, Size.SMALL))
+                add(Line("STK: V3TTP${invoice.id} (BIDV)", Align.CENTER, Size.SMALL, bold = true))
             }
         }
         return composeToBitmap(lines, qrBitmap, logoBitmap)
@@ -286,20 +287,24 @@ object ReceiptBitmapRenderer {
                 Blank -> y += 10
                 Qr -> {
                     if (qr != null) {
-                        val left = (PRINT_WIDTH_PX - qrSize) / 2f
-                        
-                        // Bước 1: Thu phóng QR về đúng kích thước in, bật filter để các nét không bị khuyết
-                        val scaledQr = Bitmap.createScaledBitmap(qr, qrSize, qrSize, true)
-                        // Bước 2: Ép các nét xám/viền mờ thành đen trắng tuyệt đối (chống dithering)
+                        // Giữ đúng tỉ lệ ảnh (qr_only luôn vuông nên qrSize × qrSize là đúng)
+                        val targetW = qrSize
+                        val ratio = qr.height.toFloat() / qr.width.toFloat()
+                        val targetH = (targetW * ratio).toInt()
+                        val left = (PRINT_WIDTH_PX - targetW) / 2f
+
+                        // Scale để các module QR vừa đủ rõ nét
+                        val scaledQr = Bitmap.createScaledBitmap(qr, targetW, targetH, true)
+                        // Ép đen-trắng tuyệt đối, xử lý đúng alpha
                         val bwQr = thresholdBitmap(scaledQr)
-                        
+
                         val paint = Paint().apply {
                             isFilterBitmap = false
                             isAntiAlias = false
                             isDither = false
                         }
                         canvas.drawBitmap(bwQr, left, y.toFloat(), paint)
-                        y += qrSize + 16
+                        y += targetH + 16
                     }
                 }
             }
@@ -357,11 +362,17 @@ object ReceiptBitmapRenderer {
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
         for (i in pixels.indices) {
             val color = pixels[i]
+            val a = (color ushr 24) and 0xFF
+            if (a < 128) {
+                // Pixel trong suốt → trắng (nền giấy)
+                pixels[i] = Color.WHITE
+                continue
+            }
             val r = (color shr 16) and 0xFF
             val g = (color shr 8) and 0xFF
             val b = color and 0xFF
-            val gray = (r * 0.299 + g * 0.587 + b * 0.114).toInt()
-            pixels[i] = if (gray > 128) Color.WHITE else Color.BLACK
+            val gray = (r * 299 + g * 587 + b * 114) / 1000
+            pixels[i] = if (gray > 160) Color.WHITE else Color.BLACK
         }
         outBmp.setPixels(pixels, 0, width, 0, 0, width, height)
         return outBmp

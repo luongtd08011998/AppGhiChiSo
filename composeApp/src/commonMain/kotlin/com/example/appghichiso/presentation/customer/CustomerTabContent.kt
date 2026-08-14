@@ -49,6 +49,8 @@ import com.example.appghichiso.presentation.common.ErrorView
 import com.example.appghichiso.presentation.common.LoadingIndicator
 import com.example.appghichiso.presentation.common.UiState
 
+import com.example.appghichiso.utils.matchesSearch
+
 enum class CustomerFilter(val label: String) {
     ALL("Tất cả"),
     RECORDED("Đã ghi"),
@@ -89,9 +91,9 @@ fun CustomerTabContent(
                 }
 
                 val matchSearch = searchQuery.isBlank() ||
-                    c.customerName.contains(searchQuery, ignoreCase = true) ||
-                    c.customerCode.contains(searchQuery, ignoreCase = true) ||
-                    c.contractSerial.contains(searchQuery, ignoreCase = true)
+                    c.customerName.matchesSearch(searchQuery) ||
+                    c.customerCode.matchesSearch(searchQuery) ||
+                    c.contractSerial.matchesSearch(searchQuery)
 
                 matchFilter && matchSearch
             }

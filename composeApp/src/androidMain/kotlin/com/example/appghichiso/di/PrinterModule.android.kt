@@ -17,5 +17,6 @@ fun printerModule(): Module = module {
             settings = get()
         )
     }
-    single { PrinterHub.init(get<PrinterRepository>(), get<com.example.appghichiso.data.api.PaybillApiService>()) }
+    // QR BIDV được tải trực tiếp trong BluetoothPrinterRepository — không cần PaybillApiService nữa
+    single { PrinterHub.init(get<PrinterRepository>()) }
 }

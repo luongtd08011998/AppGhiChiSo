@@ -21,7 +21,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.data.printer.ReceiptBitmapRenderer
-import org.koin.compose.koinInject
+import com.example.appghichiso.utils.buildVietQrUrl
+import com.example.appghichiso.utils.fetchVietQrBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -36,27 +37,19 @@ actual fun InvoicePrintPreviewDialog(invoice: InvoiceDto, onDismiss: () -> Unit)
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    val paybillApiService = koinInject<com.example.appghichiso.data.api.PaybillApiService>()
-
     LaunchedEffect(invoice) {
         loading = true
         bitmap = withContext(Dispatchers.IO) {
-            var qrBitmap: Bitmap? = null
-            try {
-                val req = com.example.appghichiso.data.api.dto.PaybillQrRequest(
-                    digiCode = invoice.custCode ?: "",
-                    monthInvoiceIds = listOf(invoice.id)
+            val qrBitmap = runCatching {
+                val url = buildVietQrUrl(
+                    invoiceId = invoice.id,
+                    amount    = invoice.totalAmount,
+                    custCode  = invoice.custCode ?: "",
+                    yearMonth = invoice.yearMonth ?: "",
+                    invNumber = invoice.invNumber ?: ""
                 )
-                val res = paybillApiService.getQrCode(req)
-                val b64 = res.qrContent
-                if (!b64.isNullOrBlank()) {
-                    @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
-                    val bytes = kotlin.io.encoding.Base64.Default.decode(b64)
-                    qrBitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+                fetchVietQrBitmap(url)
+            }.getOrNull()
             val logoBitmap = android.graphics.BitmapFactory.decodeResource(context.resources, com.example.appghichiso.R.drawable.logocongty1)
             ReceiptBitmapRenderer.renderInvoice(invoice, qrBitmap, logoBitmap)
         }

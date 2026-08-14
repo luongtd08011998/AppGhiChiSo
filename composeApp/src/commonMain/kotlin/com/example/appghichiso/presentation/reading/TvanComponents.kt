@@ -12,9 +12,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
-import org.koin.compose.koinInject
+
+// import org.koin.compose.koinInject  // Tạm ẩn: chỉ cần khi dùng Payoo QR API
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,8 +29,8 @@ import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.presentation.printer.InvoicePrintPreviewDialog
 import com.example.appghichiso.presentation.printer.ReceiptPrintPreviewDialog
-// TODO: Bỏ comment khi tính năng tự động gạch qua QR đã hoàn thiện
-// import com.example.appghichiso.utils.buildVietQrUrl
+import com.example.appghichiso.utils.buildVietQrUrl
+import com.example.appghichiso.utils.getVirtualAccount
 import com.example.appghichiso.utils.formatApiDate
 
 @Composable
@@ -165,7 +164,7 @@ fun InvoicePaperDialog(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                        PayooQrImage(invoice)
+                        VietQrImage(invoice)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -512,48 +511,77 @@ private fun ReceiptInfoRow(label: String, value: String, labelColor: Color = Col
     }
 }
 
-@OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+/**
+ * Hiển thị mã VietQR bằng cách load ảnh PNG từ img.vietqr.io.
+ *
+ * Không cần gọi API backend (Payoo). URL được sinh trực tiếp từ thông tin hóa đơn
+ * theo chuẩn NAPAS. Coil tự cache ảnh sau lần load đầu tiên.
+ *
+ * Để quay lại Payoo QR, xem hàm PayooQrImage (đã tạm ẩn bên dưới).
+ */
 @Composable
-fun PayooQrImage(invoice: InvoiceDto) {
-    var qrBytes by remember { mutableStateOf<ByteArray?>(null) }
-    var isLoadingQr by remember { mutableStateOf(true) }
-    val paybillApiService = koinInject<com.example.appghichiso.data.api.PaybillApiService>()
-
-    LaunchedEffect(invoice.id) {
-        isLoadingQr = true
-        try {
-            val req = com.example.appghichiso.data.api.dto.PaybillQrRequest(
-                digiCode = invoice.custCode ?: "",
-                monthInvoiceIds = listOf(invoice.id)
-            )
-            com.example.appghichiso.util.Logger.d("PayooQrImage") { "Calling Payoo QR API with request: $req" }
-            val res = paybillApiService.getQrCode(req)
-            com.example.appghichiso.util.Logger.d("PayooQrImage") { "Received Payoo QR response: qrContent is null? ${res.qrContent == null}, qrIdentify: ${res.qrIdentify}" }
-            
-            val b64 = res.qrContent
-            if (!b64.isNullOrBlank()) {
-                qrBytes = kotlin.io.encoding.Base64.Default.decode(b64)
-            } else {
-                com.example.appghichiso.util.Logger.e("PayooQrImage") { "Payoo QR Content is empty or null" }
-            }
-        } catch (e: Exception) {
-            com.example.appghichiso.util.Logger.e("PayooQrImage", e) { "Failed to load Payoo QR: ${e.message}" }
-        } finally {
-            isLoadingQr = false
-        }
+fun VietQrImage(invoice: InvoiceDto) {
+    val qrUrl = remember(invoice.id) {
+        buildVietQrUrl(
+            invoiceId = invoice.id,
+            amount    = invoice.totalAmount,
+            custCode  = invoice.custCode ?: "",
+            yearMonth = invoice.yearMonth ?: "",
+            invNumber = invoice.invNumber ?: ""
+        )
     }
 
-    if (isLoadingQr) {
-        CircularProgressIndicator(modifier = Modifier.size(48.dp).padding(8.dp))
-    } else if (qrBytes != null) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         AsyncImage(
-            model = qrBytes,
-            contentDescription = "Mã QR thanh toán",
-            modifier = Modifier.size(240.dp),
-            contentScale = ContentScale.Fit
+            model              = qrUrl,
+            contentDescription = "Mã VietQR thanh toán — quét bằng app ngân hàng",
+            modifier           = Modifier.size(240.dp),
+            contentScale       = ContentScale.Fit,
+            onError            = { /* Lỗi load ảnh — hiển thị fallback bên dưới */ }
         )
-    } else {
-        Text("Không thể tải mã QR", color = Color.Red, style = MaterialTheme.typography.bodySmall)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "STK (BIDV): ${getVirtualAccount(invoice.id)}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF1565C0)
+        )
     }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ *  PayooQrImage  — TẠM ẨN (Payoo QR API backend)
+ *  Bỏ comment toàn bộ khối dưới và import koinInject để kích hoạt lại.
+ * ────────────────────────────────────────────────────────────────────────── */
+// @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+// @Composable
+// fun PayooQrImage(invoice: InvoiceDto) {
+//     var qrBytes by remember { mutableStateOf<ByteArray?>(null) }
+//     var isLoadingQr by remember { mutableStateOf(true) }
+//     val paybillApiService = koinInject<com.example.appghichiso.data.api.PaybillApiService>()
+//     LaunchedEffect(invoice.id) {
+//         isLoadingQr = true
+//         try {
+//             val req = com.example.appghichiso.data.api.dto.PaybillQrRequest(
+//                 digiCode = invoice.custCode ?: "",
+//                 monthInvoiceIds = listOf(invoice.id)
+//             )
+//             val res = paybillApiService.getQrCode(req)
+//             val b64 = res.qrContent
+//             if (!b64.isNullOrBlank()) {
+//                 qrBytes = kotlin.io.encoding.Base64.Default.decode(b64)
+//             }
+//         } catch (e: Exception) { /* ignore */ } finally { isLoadingQr = false }
+//     }
+//     if (isLoadingQr) {
+//         CircularProgressIndicator(modifier = Modifier.size(48.dp).padding(8.dp))
+//     } else if (qrBytes != null) {
+//         AsyncImage(model = qrBytes, contentDescription = "Mã QR thanh toán",
+//             modifier = Modifier.size(240.dp), contentScale = ContentScale.Fit)
+//     } else {
+//         Text("Không thể tải mã QR", color = Color.Red, style = MaterialTheme.typography.bodySmall)
+//     }
+// }
 

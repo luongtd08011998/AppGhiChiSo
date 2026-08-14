@@ -68,6 +68,7 @@ import com.example.appghichiso.session.SessionManager
 import com.example.appghichiso.ui.theme.Cyan
 import com.example.appghichiso.ui.theme.OceanBlue
 import com.example.appghichiso.ui.theme.OceanBlueDark
+import com.example.appghichiso.utils.matchesSearch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -213,8 +214,8 @@ fun RouteListScreen(
                 is UiState.Success -> {
                     val filtered = state.data.filter { road ->
                         searchQuery.isBlank() ||
-                            road.name.contains(searchQuery, ignoreCase = true) ||
-                            road.code.contains(searchQuery, ignoreCase = true)
+                            road.name.matchesSearch(searchQuery) ||
+                            road.code.matchesSearch(searchQuery)
                     }
                     PullToRefreshBox(
                         isRefreshing = false,

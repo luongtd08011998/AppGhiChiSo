@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.appghichiso.utils.matchesSearch
 import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.presentation.common.ErrorView
 import com.example.appghichiso.presentation.common.LoadingIndicator
@@ -69,8 +70,8 @@ fun ToPublishTabContent(
             val allToPublish = state.data
             val filtered = allToPublish.filter { inv ->
                 searchQuery.isBlank() ||
-                    (inv.custName ?: "").contains(searchQuery, ignoreCase = true) ||
-                    (inv.custCode ?: "").contains(searchQuery, ignoreCase = true)
+                    inv.custName.matchesSearch(searchQuery) ||
+                    inv.custCode.matchesSearch(searchQuery)
             }
 
             if (filtered.isEmpty()) {
@@ -295,8 +296,8 @@ fun DebtTabContent(
             val allDebt = state.data
             val filtered = allDebt.filter { inv ->
                 searchQuery.isBlank() ||
-                    (inv.custName ?: "").contains(searchQuery, ignoreCase = true) ||
-                    (inv.custCode ?: "").contains(searchQuery, ignoreCase = true)
+                    inv.custName.matchesSearch(searchQuery) ||
+                    inv.custCode.matchesSearch(searchQuery)
             }
 
             if (filtered.isEmpty()) {
@@ -470,8 +471,8 @@ fun PaidTabContent(
             val allPaid = state.data
             val filtered = allPaid.filter { inv ->
                 searchQuery.isBlank() ||
-                    (inv.custName ?: "").contains(searchQuery, ignoreCase = true) ||
-                    (inv.custCode ?: "").contains(searchQuery, ignoreCase = true)
+                    inv.custName.matchesSearch(searchQuery) ||
+                    inv.custCode.matchesSearch(searchQuery)
             }
 
             if (filtered.isEmpty()) {

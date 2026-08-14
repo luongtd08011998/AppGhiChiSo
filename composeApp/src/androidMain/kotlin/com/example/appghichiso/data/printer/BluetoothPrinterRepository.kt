@@ -13,9 +13,8 @@ import com.example.appghichiso.data.api.dto.InvoiceDto
 import com.example.appghichiso.data.api.dto.ReceiptDto
 import com.example.appghichiso.domain.model.PrinterDevice
 import com.example.appghichiso.printer.PrinterRepository
-// TODO: Bỏ comment khi tính năng tự động gạch qua QR đã hoàn thiện
-// import com.example.appghichiso.utils.VietQrUrlFetcher
-// import com.example.appghichiso.utils.buildVietQrUrl
+import com.example.appghichiso.utils.buildVietQrUrl
+import com.example.appghichiso.utils.fetchVietQrBitmap
 import com.russhwolf.settings.Settings
 
 /**
@@ -75,15 +74,17 @@ class BluetoothPrinterRepository(
     }
 
     override suspend fun printInvoice(device: PrinterDevice, invoice: InvoiceDto, qrBase64: String?): Result<Unit> = runCatching {
-        var qrBitmap: Bitmap? = null
-        if (!qrBase64.isNullOrBlank()) {
-            try {
-                val bytes = kotlin.io.encoding.Base64.Default.decode(qrBase64)
-                qrBitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        // Tải QR BIDV trực tiếp từ VietQR (bỏ qua qrBase64 PayBill cũ)
+        val qrBitmap: Bitmap? = runCatching {
+            val url = buildVietQrUrl(
+                invoiceId = invoice.id,
+                amount    = invoice.totalAmount,
+                custCode  = invoice.custCode ?: "",
+                yearMonth = invoice.yearMonth ?: "",
+                invNumber = invoice.invNumber ?: ""
+            )
+            fetchVietQrBitmap(url)
+        }.getOrNull()
         val logoBitmap = android.graphics.BitmapFactory.decodeResource(appContext.resources, com.example.appghichiso.R.drawable.logocongty1)
         val bitmap = ReceiptBitmapRenderer.renderInvoice(invoice, qrBitmap = qrBitmap, logoBitmap = logoBitmap)
         printBitmap(device, bitmap)
