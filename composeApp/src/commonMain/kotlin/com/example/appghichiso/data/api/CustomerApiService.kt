@@ -22,7 +22,7 @@ class CustomerApiService(private val client: HttpClient) {
 
     suspend fun getCustomersByRoad(roadCode: String, page: Int): CustomerByRoadResponse =
         client.get(
-            "http://toctienltd.vn/cm-portlet/api/customers_by_road?rc=$roadCode&pn=$page"
+            "$TVAN_URL/customers_by_road?rc=$roadCode&pn=$page"
         ).body()
 }
 

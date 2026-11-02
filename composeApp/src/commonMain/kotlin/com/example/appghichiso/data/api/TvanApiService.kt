@@ -22,7 +22,6 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val TAG = "TvanApiService"
-private const val TVAN_URL = "http://toctienltd.vn/cm-portlet/api"
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
 @OptIn(ExperimentalEncodingApi::class)

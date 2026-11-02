@@ -70,7 +70,6 @@ object ReceiptBitmapRenderer {
                 add(Line("HOẶC QUÉT MÃ QR", Align.CENTER, Size.BODY, bold = true))
                 addQr()
                 add(Line("Mở app ngân hàng → Quét mã QR", Align.CENTER, Size.SMALL))
-                add(Line("STK: V3TTP${invoice.id} (BIDV)", Align.CENTER, Size.SMALL, bold = true))
             }
         }
         return composeToBitmap(lines, qrBitmap, logoBitmap)

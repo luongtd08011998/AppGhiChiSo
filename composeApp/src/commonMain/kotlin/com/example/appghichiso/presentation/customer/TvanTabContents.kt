@@ -139,7 +139,7 @@ fun ToPublishTabContent(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(vertical = 8.dp)
                             ) {
-                                itemsIndexed(filtered, key = { _, inv -> inv.id }) { index, invoice ->
+                                itemsIndexed(filtered, key = { index, inv -> "${inv.id}_$index" }) { index, invoice ->
                                     val isSelected = selectedInvoiceIds.contains(invoice.id)
                                     ToPublishItem(
                                         index = index,
@@ -336,7 +336,7 @@ fun DebtTabContent(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
-                        itemsIndexed(filtered, key = { _, inv -> inv.id }) { index, invoice ->
+                        itemsIndexed(filtered, key = { index, inv -> "${inv.id}_$index" }) { index, invoice ->
                             DebtItem(
                                 index = index,
                                 invoice = invoice,
@@ -511,7 +511,7 @@ fun PaidTabContent(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
-                        itemsIndexed(filtered, key = { _, inv -> inv.id }) { index, invoice ->
+                        itemsIndexed(filtered, key = { index, inv -> "${inv.id}_$index" }) { index, invoice ->
                             PaidItem(
                                 index = index,
                                 invoice = invoice,

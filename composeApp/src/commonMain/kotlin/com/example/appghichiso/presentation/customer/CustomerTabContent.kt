@@ -262,8 +262,8 @@ fun CustomerTabContent(
                     ) {
                         itemsIndexed(
                             filtered,
-                            key = { _, customer ->
-                                "${customer.customerCode}-${customer.contractCode}"
+                            key = { index, customer ->
+                                "${customer.customerCode}-${customer.contractCode}-$index"
                             }
                         ) { index, customer ->
                             val isRec = customer.isRecorded || isRecorded(customer.customerCode)

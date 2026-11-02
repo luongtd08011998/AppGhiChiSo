@@ -21,7 +21,7 @@ data class InvoiceDto(
     val newIndex: Long,
     val empPhone: String? = null,
     val numOfPages: Int? = null,
-    @kotlinx.serialization.SerialName("LookupCode")
+    @JsonNames("LookupCode", "lookupCode")
     val lookupCode: String? = null
 )
 
@@ -29,14 +29,14 @@ data class InvoiceDto(
 data class TvanPublishResponse(
     val retCode: String = "",
     val retMsg: String = "",
-    val result: String = ""
+    val result: String? = ""
 )
 
 @Serializable
 data class PayCashResponse(
     val retCode: String = "",
     val retMsg: String = "",
-    val result: String = "" // số phiếu thu
+    val result: String? = "" // số phiếu thu
 )
 
 @Serializable
@@ -68,6 +68,7 @@ data class ReceiptDto(
     val envFee: String = "",
     val totalAmount: String = "",
     val totalAmountInWord: String = "",
+    @JsonNames("LookupCode", "lookupCode")
     val lookupCode: String = "",
     val paymentLineNum: String? = null,
     val paymentLineDate: String? = null,

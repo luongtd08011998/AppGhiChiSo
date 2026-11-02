@@ -19,8 +19,6 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val TAG = "SmsApiService"
-private const val SMS_URL = "http://toctienltd.vn"
-
 private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
 @OptIn(ExperimentalEncodingApi::class)

@@ -96,7 +96,7 @@ private fun networkModule() = module {
         }
 
         client.requestPipeline.intercept(io.ktor.client.request.HttpRequestPipeline.State) {
-            if (sessionManager.isActive) {
+            if (sessionManager.isActive && !context.headers.contains(io.ktor.http.HttpHeaders.Authorization)) {
                 val authString = "${sessionManager.email}:${sessionManager.password}"
                 val base64 = kotlin.io.encoding.Base64.Default.encode(authString.encodeToByteArray())
                 context.headers.append(io.ktor.http.HttpHeaders.Authorization, "Basic $base64")

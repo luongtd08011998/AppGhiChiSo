@@ -378,7 +378,7 @@ class MeterReadingViewModel(
                                 }
                             }
                             
-                            _tvanActionState.value = TvanActionState.PublishSuccess(res.result, res.retMsg)
+                            _tvanActionState.value = TvanActionState.PublishSuccess(res.result ?: "", res.retMsg)
                             _isTvanCreated.value = true
                             _submitState.value = SubmitState.Success
                         },
@@ -418,7 +418,7 @@ class MeterReadingViewModel(
                         }
                     }
 
-                    _tvanActionState.value = TvanActionState.PublishSuccess(res.result, res.retMsg)
+                    _tvanActionState.value = TvanActionState.PublishSuccess(res.result ?: "", res.retMsg)
                     _isTvanCreated.value = true
                 },
                 onFailure = { err ->
@@ -440,7 +440,7 @@ class MeterReadingViewModel(
                     }
                     _isTvanPaid.value = true
                     _tvanPaidInvoiceId.value = invoiceId
-                    _tvanActionState.value = TvanActionState.PaySuccess(res.result, res.retMsg)
+                    _tvanActionState.value = TvanActionState.PaySuccess(res.result ?: "", res.retMsg)
                 },
                 onFailure = { err ->
                     _tvanActionState.value = TvanActionState.Error(err.message ?: "Lỗi thu tiền")

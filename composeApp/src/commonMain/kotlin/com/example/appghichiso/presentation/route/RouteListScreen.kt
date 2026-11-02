@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -236,7 +237,7 @@ fun RouteListScreen(
                                     start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp
                                 )
                             ) {
-                                items(filtered, key = { it.code }) { road ->
+                                itemsIndexed(filtered, key = { index, road -> "${road.code}_${road.name}_$index" }) { _, road ->
                                     RoadCard(road = road, onClick = {
                                         appStateHolder.selectedRoad = road
                                         onRoadSelected(road)

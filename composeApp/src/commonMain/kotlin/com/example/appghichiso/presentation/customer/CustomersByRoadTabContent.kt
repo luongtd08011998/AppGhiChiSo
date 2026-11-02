@@ -271,7 +271,7 @@ fun CustomersByRoadTabContent(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 24.dp)
                         ) {
-                            itemsIndexed(filtered, key = { _, c -> c.id }) { index, customer ->
+                            itemsIndexed(filtered, key = { index, c -> "${c.id}_$index" }) { index, customer ->
                                 CustomerByRoadCard(
                                     index = index,
                                     customer = customer,

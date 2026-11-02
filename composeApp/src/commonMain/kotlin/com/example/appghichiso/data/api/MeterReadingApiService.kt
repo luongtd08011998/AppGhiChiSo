@@ -21,7 +21,7 @@ class MeterReadingApiService(private val client: HttpClient) {
         newIndex: Int
     ): UpdateIndexApiResponse {
         val response = client.post(
-            "http://toctienltd.vn/api/jsonws/cm-portlet.api/update-invoice/id/$id/new-index/$newIndex"
+            "$BASE_URL/api/jsonws/cm-portlet.api/update-invoice/id/$id/new-index/$newIndex"
         )
         val body = response.bodyAsText().trim()
         return try {

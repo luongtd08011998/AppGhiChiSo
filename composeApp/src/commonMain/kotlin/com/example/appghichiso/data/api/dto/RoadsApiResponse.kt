@@ -10,7 +10,7 @@ data class RoadDto(
 
 @Serializable
 data class RoadsApiResponse(
-    val data: List<RoadDto>,
+    val data: List<RoadDto>? = null,
     val status: ApiStatus? = null
 )
 

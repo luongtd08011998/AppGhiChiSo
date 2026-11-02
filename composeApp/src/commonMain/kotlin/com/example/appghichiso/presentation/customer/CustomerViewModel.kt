@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 
@@ -275,10 +277,13 @@ class CustomerViewModel(
                     currentDebtList.clear()
                     debtPrefetchJob?.cancel()
                     _debtState.value = UiState.Loading
-                    val ymResult = getDebtListUseCase(ym, currentRoadCode, "", 0)
-                    val systemYmResult = if (systemYm != ym) {
-                        getDebtListUseCase(systemYm, currentRoadCode, "", 0)
-                    } else null
+                    val (ymResult, systemYmResult) = coroutineScope {
+                        val ymDeferred = async { getDebtListUseCase(ym, currentRoadCode, "", 0) }
+                        val sysDeferred = if (systemYm != ym) {
+                            async { getDebtListUseCase(systemYm, currentRoadCode, "", 0) }
+                        } else null
+                        Pair(ymDeferred.await(), sysDeferred?.await())
+                    }
 
                     if (ymResult.isSuccess) {
                         val debtsYm = mapCustomerId(ymResult.getOrNull() ?: emptyList())
@@ -308,10 +313,13 @@ class CustomerViewModel(
                     currentPaidList.clear()
                     paidPrefetchJob?.cancel()
                     _paidState.value = UiState.Loading
-                    val ymResult = getPaidListUseCase(ym, currentRoadCode, "", 0)
-                    val systemYmResult = if (systemYm != ym) {
-                        getPaidListUseCase(systemYm, currentRoadCode, "", 0)
-                    } else null
+                    val (ymResult, systemYmResult) = coroutineScope {
+                        val ymDeferred = async { getPaidListUseCase(ym, currentRoadCode, "", 0) }
+                        val sysDeferred = if (systemYm != ym) {
+                            async { getPaidListUseCase(systemYm, currentRoadCode, "", 0) }
+                        } else null
+                        Pair(ymDeferred.await(), sysDeferred?.await())
+                    }
 
                     if (ymResult.isSuccess) {
                         val paidYm = mapCustomerId(ymResult.getOrNull() ?: emptyList())
@@ -348,13 +356,16 @@ class CustomerViewModel(
                 }
                 delay(300)
                 val newItems = mutableListOf<InvoiceDto>()
-                if (page < maxDebtPageYm && debtPageYm < page) {
-                    getDebtListUseCase(ym, currentRoadCode, "", page)
-                        .onSuccess { newItems.addAll(mapCustomerId(it)) }
-                }
-                if (page < maxDebtPageSys && debtPageSys < page && systemYm != ym) {
-                    getDebtListUseCase(systemYm, currentRoadCode, "", page)
-                        .onSuccess { newItems.addAll(mapCustomerId(it)) }
+                coroutineScope {
+                    val ymDef = if (page < maxDebtPageYm && debtPageYm < page) {
+                        async { getDebtListUseCase(ym, currentRoadCode, "", page) }
+                    } else null
+                    val sysDef = if (page < maxDebtPageSys && debtPageSys < page && systemYm != ym) {
+                        async { getDebtListUseCase(systemYm, currentRoadCode, "", page) }
+                    } else null
+
+                    ymDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }
+                    sysDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }
                 }
                 val filtered = newItems.filter { newItem ->
                     currentDebtList.none { it.id == newItem.id }
@@ -379,13 +390,16 @@ class CustomerViewModel(
                 }
                 delay(300)
                 val newItems = mutableListOf<InvoiceDto>()
-                if (page < maxPaidPageYm && paidPageYm < page) {
-                    getPaidListUseCase(ym, currentRoadCode, "", page)
-                        .onSuccess { newItems.addAll(mapCustomerId(it)) }
-                }
-                if (page < maxPaidPageSys && paidPageSys < page && systemYm != ym) {
-                    getPaidListUseCase(systemYm, currentRoadCode, "", page)
-                        .onSuccess { newItems.addAll(mapCustomerId(it)) }
+                coroutineScope {
+                    val ymDef = if (page < maxPaidPageYm && paidPageYm < page) {
+                        async { getPaidListUseCase(ym, currentRoadCode, "", page) }
+                    } else null
+                    val sysDef = if (page < maxPaidPageSys && paidPageSys < page && systemYm != ym) {
+                        async { getPaidListUseCase(systemYm, currentRoadCode, "", page) }
+                    } else null
+
+                    ymDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }
+                    sysDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }
                 }
                 val filtered = newItems.filter { newItem ->
                     currentPaidList.none { it.id == newItem.id }
@@ -465,17 +479,18 @@ class CustomerViewModel(
 
         viewModelScope.launch {
             val newItems = mutableListOf<InvoiceDto>()
-            if (canLoadYm) {
-                debtPageYm++
-                getDebtListUseCase(ym, currentRoadCode, "", debtPageYm)
-                    .onSuccess { newItems.addAll(mapCustomerId(it)) }
-                    .onFailure { debtPageYm-- }
-            }
-            if (canLoadSys && systemYm != ym) {
-                debtPageSys++
-                getDebtListUseCase(systemYm, currentRoadCode, "", debtPageSys)
-                    .onSuccess { newItems.addAll(mapCustomerId(it)) }
-                    .onFailure { debtPageSys-- }
+            coroutineScope {
+                val ymDef = if (canLoadYm) {
+                    debtPageYm++
+                    async { getDebtListUseCase(ym, currentRoadCode, "", debtPageYm) }
+                } else null
+                val sysDef = if (canLoadSys && systemYm != ym) {
+                    debtPageSys++
+                    async { getDebtListUseCase(systemYm, currentRoadCode, "", debtPageSys) }
+                } else null
+
+                ymDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }?.onFailure { debtPageYm-- }
+                sysDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }?.onFailure { debtPageSys-- }
             }
             if (newItems.isNotEmpty()) {
                 currentDebtList.addAll(newItems)
@@ -497,17 +512,18 @@ class CustomerViewModel(
 
         viewModelScope.launch {
             val newItems = mutableListOf<InvoiceDto>()
-            if (canLoadYm) {
-                paidPageYm++
-                getPaidListUseCase(ym, currentRoadCode, "", paidPageYm)
-                    .onSuccess { newItems.addAll(mapCustomerId(it)) }
-                    .onFailure { paidPageYm-- }
-            }
-            if (canLoadSys && systemYm != ym) {
-                paidPageSys++
-                getPaidListUseCase(systemYm, currentRoadCode, "", paidPageSys)
-                    .onSuccess { newItems.addAll(mapCustomerId(it)) }
-                    .onFailure { paidPageSys-- }
+            coroutineScope {
+                val ymDef = if (canLoadYm) {
+                    paidPageYm++
+                    async { getPaidListUseCase(ym, currentRoadCode, "", paidPageYm) }
+                } else null
+                val sysDef = if (canLoadSys && systemYm != ym) {
+                    paidPageSys++
+                    async { getPaidListUseCase(systemYm, currentRoadCode, "", paidPageSys) }
+                } else null
+
+                ymDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }?.onFailure { paidPageYm-- }
+                sysDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }?.onFailure { paidPageSys-- }
             }
             if (newItems.isNotEmpty()) {
                 currentPaidList.addAll(newItems)
@@ -531,7 +547,7 @@ class CustomerViewModel(
             _tvanActionState.value = TvanActionState.Loading
             publishTvanUseCase(ids).fold(
                 onSuccess = { res ->
-                    _tvanActionState.value = TvanActionState.PublishSuccess(res.result, res.retMsg)
+                    _tvanActionState.value = TvanActionState.PublishSuccess(res.result ?: "", res.retMsg)
                     loadInvoiceSubTab(1)
                 },
                 onFailure = { err ->
@@ -555,7 +571,7 @@ class CustomerViewModel(
             _tvanActionState.value = TvanActionState.Loading
             payCashUseCase(id).fold(
                 onSuccess = { res ->
-                    _tvanActionState.value = TvanActionState.PaySuccess(res.result, res.retMsg)
+                    _tvanActionState.value = TvanActionState.PaySuccess(res.result ?: "", res.retMsg)
                     loadInvoiceSubTab(2)
                 },
                 onFailure = { err ->
