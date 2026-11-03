@@ -76,6 +76,8 @@ fun CustomerListScreen(
     val isToPublishLoadingMore by viewModel.isToPublishLoadingMore.collectAsStateWithLifecycle()
     val isDebtLoadingMore by viewModel.isDebtLoadingMore.collectAsStateWithLifecycle()
     val isPaidLoadingMore by viewModel.isPaidLoadingMore.collectAsStateWithLifecycle()
+    val debtTotalCount by viewModel.debtTotalCount.collectAsStateWithLifecycle()
+    val paidTotalCount by viewModel.paidTotalCount.collectAsStateWithLifecycle()
 
     var searchQuery by remember { mutableStateOf("") }
     val selectedInvoiceIds = remember { mutableStateListOf<Long>() }
@@ -312,6 +314,7 @@ fun CustomerListScreen(
                                 DebtTabContent(
                                     state = debtState,
                                     searchQuery = searchQuery,
+                                    totalCount = debtTotalCount,
                                     onPayClick = { inv -> invoiceToPay = inv },
                                     onRefresh = { viewModel.refresh() },
                                     onLoadMore = { viewModel.loadMoreDebt() },
@@ -322,6 +325,7 @@ fun CustomerListScreen(
                                 PaidTabContent(
                                     state = paidState,
                                     searchQuery = searchQuery,
+                                    totalCount = paidTotalCount,
                                     onReceiptClick = { inv -> viewModel.loadReceipt(inv.id) },
                                     onRefresh = { viewModel.refresh() },
                                     onLoadMore = { viewModel.loadMorePaid() },

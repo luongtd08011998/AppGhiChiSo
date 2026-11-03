@@ -23,6 +23,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -282,6 +283,7 @@ fun ToPublishItem(
 fun DebtTabContent(
     state: UiState<List<InvoiceDto>>,
     searchQuery: String,
+    totalCount: Int = 0,
     onPayClick: (InvoiceDto) -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
@@ -294,65 +296,112 @@ fun DebtTabContent(
         is UiState.Error -> ErrorView(message = state.message, onRetry = onRefresh)
         is UiState.Success -> {
             val allDebt = state.data
+            val loadedCount = allDebt.size
+            val effectiveTotal = maxOf(loadedCount, totalCount)
+            val progress = if (effectiveTotal > 0) (loadedCount.toFloat() / effectiveTotal.toFloat()).coerceIn(0f, 1f) else 0f
+
             val filtered = allDebt.filter { inv ->
                 searchQuery.isBlank() ||
                     inv.custName.matchesSearch(searchQuery) ||
                     inv.custCode.matchesSearch(searchQuery)
             }
 
-            if (filtered.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "Không có hóa đơn nợ nào",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                PullToRefreshBox(
-                    isRefreshing = isRefreshing,
-                    onRefresh = {
-                        isRefreshing = true
-                        onRefresh()
-                        isRefreshing = false
-                    }
+            Column(modifier = Modifier.fillMaxSize()) {
+                /* Progress summary */
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    val listState = rememberLazyListState()
-                    val isAtBottom by remember {
-                        derivedStateOf {
-                            val layoutInfo = listState.layoutInfo
-                            val totalItems = layoutInfo.totalItemsCount
-                            val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
-                            lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
-                        }
-                    }
-
-                    LaunchedEffect(isAtBottom) {
-                        if (isAtBottom) onLoadMore()
-                    }
-
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        itemsIndexed(filtered, key = { index, inv -> "${inv.id}_$index" }) { index, invoice ->
-                            DebtItem(
-                                index = index,
-                                invoice = invoice,
-                                onPayClick = { onPayClick(invoice) }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Tiến độ tải hóa đơn nợ",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Đã tải $loadedCount/$effectiveTotal HĐ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
-                        if (isLoadingMore) {
-                            item {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp
-                                    )
+                        Spacer(Modifier.size(8.dp))
+
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.secondary,
+                            trackColor = MaterialTheme.colorScheme.secondaryContainer,
+                            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                        )
+                    }
+                }
+
+                if (filtered.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Không có hóa đơn nợ nào",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = {
+                            isRefreshing = true
+                            onRefresh()
+                            isRefreshing = false
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        val listState = rememberLazyListState()
+                        val isAtBottom by remember {
+                            derivedStateOf {
+                                val layoutInfo = listState.layoutInfo
+                                val totalItems = layoutInfo.totalItemsCount
+                                val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+                                lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
+                            }
+                        }
+
+                        LaunchedEffect(isAtBottom) {
+                            if (isAtBottom) onLoadMore()
+                        }
+
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            itemsIndexed(filtered, key = { index, inv -> "${inv.id}_$index" }) { index, invoice ->
+                                DebtItem(
+                                    index = index,
+                                    invoice = invoice,
+                                    onPayClick = { onPayClick(invoice) }
+                                )
+                            }
+                            if (isLoadingMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -457,6 +506,7 @@ fun DebtItem(
 fun PaidTabContent(
     state: UiState<List<InvoiceDto>>,
     searchQuery: String,
+    totalCount: Int = 0,
     onReceiptClick: (InvoiceDto) -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
@@ -469,65 +519,112 @@ fun PaidTabContent(
         is UiState.Error -> ErrorView(message = state.message, onRetry = onRefresh)
         is UiState.Success -> {
             val allPaid = state.data
+            val loadedCount = allPaid.size
+            val effectiveTotal = maxOf(loadedCount, totalCount)
+            val progress = if (effectiveTotal > 0) (loadedCount.toFloat() / effectiveTotal.toFloat()).coerceIn(0f, 1f) else 0f
+
             val filtered = allPaid.filter { inv ->
                 searchQuery.isBlank() ||
                     inv.custName.matchesSearch(searchQuery) ||
                     inv.custCode.matchesSearch(searchQuery)
             }
 
-            if (filtered.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "Không có hóa đơn đã thanh toán nào",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                PullToRefreshBox(
-                    isRefreshing = isRefreshing,
-                    onRefresh = {
-                        isRefreshing = true
-                        onRefresh()
-                        isRefreshing = false
-                    }
+            Column(modifier = Modifier.fillMaxSize()) {
+                /* Progress summary */
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    val listState = rememberLazyListState()
-                    val isAtBottom by remember {
-                        derivedStateOf {
-                            val layoutInfo = listState.layoutInfo
-                            val totalItems = layoutInfo.totalItemsCount
-                            val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
-                            lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
-                        }
-                    }
-
-                    LaunchedEffect(isAtBottom) {
-                        if (isAtBottom) onLoadMore()
-                    }
-
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        itemsIndexed(filtered, key = { index, inv -> "${inv.id}_$index" }) { index, invoice ->
-                            PaidItem(
-                                index = index,
-                                invoice = invoice,
-                                onReceiptClick = { onReceiptClick(invoice) }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Tiến độ tải hóa đơn đã TT",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Đã tải $loadedCount/$effectiveTotal HĐ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
-                        if (isLoadingMore) {
-                            item {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp
-                                    )
+                        Spacer(Modifier.size(8.dp))
+
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.secondary,
+                            trackColor = MaterialTheme.colorScheme.secondaryContainer,
+                            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                        )
+                    }
+                }
+
+                if (filtered.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "Không có hóa đơn đã thanh toán nào",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    PullToRefreshBox(
+                        isRefreshing = isRefreshing,
+                        onRefresh = {
+                            isRefreshing = true
+                            onRefresh()
+                            isRefreshing = false
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        val listState = rememberLazyListState()
+                        val isAtBottom by remember {
+                            derivedStateOf {
+                                val layoutInfo = listState.layoutInfo
+                                val totalItems = layoutInfo.totalItemsCount
+                                val lastVisibleItemIndex = (layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 1
+                                lastVisibleItemIndex > (totalItems - 5) && totalItems > 0
+                            }
+                        }
+
+                        LaunchedEffect(isAtBottom) {
+                            if (isAtBottom) onLoadMore()
+                        }
+
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            itemsIndexed(filtered, key = { index, inv -> "${inv.id}_$index" }) { index, invoice ->
+                                PaidItem(
+                                    index = index,
+                                    invoice = invoice,
+                                    onReceiptClick = { onReceiptClick(invoice) }
+                                )
+                            }
+                            if (isLoadingMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
                                 }
                             }
                         }

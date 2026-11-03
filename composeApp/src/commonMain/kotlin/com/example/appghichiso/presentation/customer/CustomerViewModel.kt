@@ -99,16 +99,24 @@ class CustomerViewModel(
     private var maxDebtPageYm = 1
     private var debtPageSys = 0
     private var maxDebtPageSys = 1
+    private var estDebtCountYm = 0
+    private var estDebtCountSys = 0
     private val _isDebtLoadingMore = MutableStateFlow(false)
     val isDebtLoadingMore: StateFlow<Boolean> = _isDebtLoadingMore.asStateFlow()
+    private val _debtTotalCount = MutableStateFlow(0)
+    val debtTotalCount: StateFlow<Int> = _debtTotalCount.asStateFlow()
     private val currentDebtList = mutableListOf<InvoiceDto>()
 
     private var paidPageYm = 0
     private var maxPaidPageYm = 1
     private var paidPageSys = 0
     private var maxPaidPageSys = 1
+    private var estPaidCountYm = 0
+    private var estPaidCountSys = 0
     private val _isPaidLoadingMore = MutableStateFlow(false)
     val isPaidLoadingMore: StateFlow<Boolean> = _isPaidLoadingMore.asStateFlow()
+    private val _paidTotalCount = MutableStateFlow(0)
+    val paidTotalCount: StateFlow<Int> = _paidTotalCount.asStateFlow()
     private val currentPaidList = mutableListOf<InvoiceDto>()
 
     private var customersByRoadPage = 0
@@ -233,9 +241,34 @@ class CustomerViewModel(
         }
     }
 
+    private fun updateDebtTotalCount(systemYmDiffers: Boolean) {
+        val loadedSize = currentDebtList.distinctBy { it.id }.size
+        val allYmLoaded = debtPageYm >= maxDebtPageYm - 1
+        val allSysLoaded = !systemYmDiffers || debtPageSys >= maxDebtPageSys - 1
+        _debtTotalCount.value = if (allYmLoaded && allSysLoaded) {
+            loadedSize
+        } else {
+            maxOf(loadedSize, estDebtCountYm + estDebtCountSys)
+        }
+    }
+
+    private fun updatePaidTotalCount(systemYmDiffers: Boolean) {
+        val loadedSize = currentPaidList.distinctBy { it.id }.size
+        val allYmLoaded = paidPageYm >= maxPaidPageYm - 1
+        val allSysLoaded = !systemYmDiffers || paidPageSys >= maxPaidPageSys - 1
+        _paidTotalCount.value = if (allYmLoaded && allSysLoaded) {
+            loadedSize
+        } else {
+            maxOf(loadedSize, estPaidCountYm + estPaidCountSys)
+        }
+    }
+
     fun loadInvoiceSubTab(tab: Int) {
         val ym = "$currentYear${currentMonth.toString().padStart(2, '0')}"
         val systemYm = "${com.example.appghichiso.util.currentYear()}${com.example.appghichiso.util.currentMonth().toString().padStart(2, '0')}"
+        // Dừng các tiến trình tải ngầm của tab khác để tránh nghẽn mạng BE
+        if (tab != 2) debtPrefetchJob?.cancel()
+        if (tab != 3) paidPrefetchJob?.cancel()
         viewModelScope.launch {
             when (tab) {
                 0 -> {
@@ -275,6 +308,7 @@ class CustomerViewModel(
                     debtPageYm = 0
                     debtPageSys = 0
                     currentDebtList.clear()
+                    _debtTotalCount.value = 0
                     debtPrefetchJob?.cancel()
                     _debtState.value = UiState.Loading
                     val (ymResult, systemYmResult) = coroutineScope {
@@ -288,15 +322,19 @@ class CustomerViewModel(
                     if (ymResult.isSuccess) {
                         val debtsYm = mapCustomerId(ymResult.getOrNull() ?: emptyList())
                         maxDebtPageYm = debtsYm.firstOrNull()?.numOfPages ?: 1
+                        estDebtCountYm = if (maxDebtPageYm <= 1) debtsYm.size else maxDebtPageYm * 30
                         val debtsSys = if (systemYmResult != null && systemYmResult.isSuccess) {
                             val mapped = mapCustomerId(systemYmResult.getOrNull() ?: emptyList())
                             maxDebtPageSys = mapped.firstOrNull()?.numOfPages ?: 1
+                            estDebtCountSys = if (maxDebtPageSys <= 1) mapped.size else maxDebtPageSys * 30
                             mapped
                         } else {
                             maxDebtPageSys = 1
+                            estDebtCountSys = 0
                             emptyList()
                         }
                         currentDebtList.addAll((debtsYm + debtsSys).distinctBy { it.id })
+                        updateDebtTotalCount(systemYm != ym)
                         _debtState.value = UiState.Success(currentDebtList.toList())
                         // Tải ngầm các trang còn lại
                         if (maxDebtPageYm > 1 || maxDebtPageSys > 1) {
@@ -311,6 +349,7 @@ class CustomerViewModel(
                     paidPageYm = 0
                     paidPageSys = 0
                     currentPaidList.clear()
+                    _paidTotalCount.value = 0
                     paidPrefetchJob?.cancel()
                     _paidState.value = UiState.Loading
                     val (ymResult, systemYmResult) = coroutineScope {
@@ -324,15 +363,19 @@ class CustomerViewModel(
                     if (ymResult.isSuccess) {
                         val paidYm = mapCustomerId(ymResult.getOrNull() ?: emptyList())
                         maxPaidPageYm = paidYm.firstOrNull()?.numOfPages ?: 1
+                        estPaidCountYm = if (maxPaidPageYm <= 1) paidYm.size else maxPaidPageYm * 30
                         val paidSys = if (systemYmResult != null && systemYmResult.isSuccess) {
                             val mapped = mapCustomerId(systemYmResult.getOrNull() ?: emptyList())
                             maxPaidPageSys = mapped.firstOrNull()?.numOfPages ?: 1
+                            estPaidCountSys = if (maxPaidPageSys <= 1) mapped.size else maxPaidPageSys * 30
                             mapped
                         } else {
                             maxPaidPageSys = 1
+                            estPaidCountSys = 0
                             emptyList()
                         }
                         currentPaidList.addAll((paidYm + paidSys).distinctBy { it.id })
+                        updatePaidTotalCount(systemYm != ym)
                         _paidState.value = UiState.Success(currentPaidList.toList())
                         // Tải ngầm các trang còn lại
                         if (maxPaidPageYm > 1 || maxPaidPageSys > 1) {
@@ -364,18 +407,31 @@ class CustomerViewModel(
                         async { getDebtListUseCase(systemYm, currentRoadCode, "", page) }
                     } else null
 
-                    ymDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }
-                    sysDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }
+                    ymDef?.await()?.onSuccess {
+                        val mapped = mapCustomerId(it)
+                        newItems.addAll(mapped)
+                        debtPageYm = page
+                        if (page == maxDebtPageYm - 1) {
+                            estDebtCountYm = (maxDebtPageYm - 1) * 30 + mapped.size
+                        }
+                    }
+                    sysDef?.await()?.onSuccess {
+                        val mapped = mapCustomerId(it)
+                        newItems.addAll(mapped)
+                        debtPageSys = page
+                        if (page == maxDebtPageSys - 1) {
+                            estDebtCountSys = (maxDebtPageSys - 1) * 30 + mapped.size
+                        }
+                    }
                 }
                 val filtered = newItems.filter { newItem ->
                     currentDebtList.none { it.id == newItem.id }
                 }
                 if (filtered.isNotEmpty()) {
                     currentDebtList.addAll(filtered)
-                    if (page < maxDebtPageYm) debtPageYm = page
-                    if (page < maxDebtPageSys) debtPageSys = page
-                    _debtState.value = UiState.Success(currentDebtList.distinctBy { it.id })
                 }
+                updateDebtTotalCount(systemYm != ym)
+                _debtState.value = UiState.Success(currentDebtList.distinctBy { it.id })
             }
         }
     }
@@ -398,18 +454,31 @@ class CustomerViewModel(
                         async { getPaidListUseCase(systemYm, currentRoadCode, "", page) }
                     } else null
 
-                    ymDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }
-                    sysDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }
+                    ymDef?.await()?.onSuccess {
+                        val mapped = mapCustomerId(it)
+                        newItems.addAll(mapped)
+                        paidPageYm = page
+                        if (page == maxPaidPageYm - 1) {
+                            estPaidCountYm = (maxPaidPageYm - 1) * 30 + mapped.size
+                        }
+                    }
+                    sysDef?.await()?.onSuccess {
+                        val mapped = mapCustomerId(it)
+                        newItems.addAll(mapped)
+                        paidPageSys = page
+                        if (page == maxPaidPageSys - 1) {
+                            estPaidCountSys = (maxPaidPageSys - 1) * 30 + mapped.size
+                        }
+                    }
                 }
                 val filtered = newItems.filter { newItem ->
                     currentPaidList.none { it.id == newItem.id }
                 }
                 if (filtered.isNotEmpty()) {
                     currentPaidList.addAll(filtered)
-                    if (page < maxPaidPageYm) paidPageYm = page
-                    if (page < maxPaidPageSys) paidPageSys = page
-                    _paidState.value = UiState.Success(currentPaidList.distinctBy { it.id })
                 }
+                updatePaidTotalCount(systemYm != ym)
+                _paidState.value = UiState.Success(currentPaidList.distinctBy { it.id })
             }
         }
     }
@@ -489,13 +558,26 @@ class CustomerViewModel(
                     async { getDebtListUseCase(systemYm, currentRoadCode, "", debtPageSys) }
                 } else null
 
-                ymDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }?.onFailure { debtPageYm-- }
-                sysDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }?.onFailure { debtPageSys-- }
+                ymDef?.await()?.onSuccess {
+                    val mapped = mapCustomerId(it)
+                    newItems.addAll(mapped)
+                    if (debtPageYm == maxDebtPageYm - 1) {
+                        estDebtCountYm = (maxDebtPageYm - 1) * 30 + mapped.size
+                    }
+                }?.onFailure { debtPageYm-- }
+                sysDef?.await()?.onSuccess {
+                    val mapped = mapCustomerId(it)
+                    newItems.addAll(mapped)
+                    if (debtPageSys == maxDebtPageSys - 1) {
+                        estDebtCountSys = (maxDebtPageSys - 1) * 30 + mapped.size
+                    }
+                }?.onFailure { debtPageSys-- }
             }
             if (newItems.isNotEmpty()) {
                 currentDebtList.addAll(newItems)
                 _debtState.value = UiState.Success(currentDebtList.distinctBy { it.id })
             }
+            updateDebtTotalCount(systemYm != ym)
             _isDebtLoadingMore.value = false
         }
     }
@@ -522,13 +604,26 @@ class CustomerViewModel(
                     async { getPaidListUseCase(systemYm, currentRoadCode, "", paidPageSys) }
                 } else null
 
-                ymDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }?.onFailure { paidPageYm-- }
-                sysDef?.await()?.onSuccess { newItems.addAll(mapCustomerId(it)) }?.onFailure { paidPageSys-- }
+                ymDef?.await()?.onSuccess {
+                    val mapped = mapCustomerId(it)
+                    newItems.addAll(mapped)
+                    if (paidPageYm == maxPaidPageYm - 1) {
+                        estPaidCountYm = (maxPaidPageYm - 1) * 30 + mapped.size
+                    }
+                }?.onFailure { paidPageYm-- }
+                sysDef?.await()?.onSuccess {
+                    val mapped = mapCustomerId(it)
+                    newItems.addAll(mapped)
+                    if (paidPageSys == maxPaidPageSys - 1) {
+                        estPaidCountSys = (maxPaidPageSys - 1) * 30 + mapped.size
+                    }
+                }?.onFailure { paidPageSys-- }
             }
             if (newItems.isNotEmpty()) {
                 currentPaidList.addAll(newItems)
                 _paidState.value = UiState.Success(currentPaidList.distinctBy { it.id })
             }
+            updatePaidTotalCount(systemYm != ym)
             _isPaidLoadingMore.value = false
         }
     }
